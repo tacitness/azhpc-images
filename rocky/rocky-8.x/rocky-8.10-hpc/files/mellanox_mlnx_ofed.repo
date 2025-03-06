@@ -1,0 +1,12 @@
+#
+# Mellanox Technologies Ltd. public repository configuration file.
+# For more information, refer to http://linux.mellanox.com
+#
+
+[mlnx_ofed_5.8-4.1.5.0_base]
+name=Mellanox Technologies rhel8.9-$basearch mlnx_ofed 5.8-4.1.5.0 GA
+baseurl=http://linux.mellanox.com/public/repo/mlnx_ofed/5.8-4.1.5.0/rhel8.9/$basearch
+enabled=1
+gpgkey=http://www.mellanox.com/downloads/ofed/RPM-GPG-KEY-Mellanox
+gpgcheck=1
+
