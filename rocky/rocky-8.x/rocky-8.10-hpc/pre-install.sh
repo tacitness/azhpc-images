@@ -7,5 +7,4 @@ dnf clean all
 
 
 # Update 
-dnf install -y tmux vim
-
+dnf install -y tmux vim wget
