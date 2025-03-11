@@ -33,14 +33,16 @@ ${HPCX_PATH}/utils/hpcx_rebuild.sh --with-hcoll --ompi-extra-config "--with-pmix
 cp -r ${HPCX_PATH}/ompi/tests ${HPCX_PATH}/hpcx-rebuild
 
 # exclude ucx from updates
-sed -i "$ s/$/ ucx*/" /etc/dnf/dnf.conf
+if ! grep -q "ucx\*" /etc/yum.conf; then    
+    sed -i '$ s/$/ ucx*/' /etc/yum.conf   
+fi
 
 # Setup module files for MPIs
 MODULE_FILES_DIRECTORY=/usr/share/Modules/modulefiles/mpi
 mkdir -p ${MODULE_FILES_DIRECTORY}
 
 # HPC-X
-cat << EOF >> ${MODULE_FILES_DIRECTORY}/hpcx-${HPCX_VERSION}
+cat << EOF > ${MODULE_FILES_DIRECTORY}/hpcx-${HPCX_VERSION}
 #%Module 1.0
 #
 #  HPCx ${HPCX_VERSION}
@@ -50,7 +52,7 @@ module load ${HPCX_PATH}/modulefiles/hpcx
 EOF
 
 # HPC-X with PMIX
-cat << EOF >> ${MODULE_FILES_DIRECTORY}/hpcx-pmix-${HPCX_VERSION}
+cat << EOF > ${MODULE_FILES_DIRECTORY}/hpcx-pmix-${HPCX_VERSION}
 #%Module 1.0
 #
 #  HPCx ${HPCX_VERSION}
@@ -58,6 +60,9 @@ cat << EOF >> ${MODULE_FILES_DIRECTORY}/hpcx-pmix-${HPCX_VERSION}
 conflict        mpi
 module load ${HPCX_PATH}/modulefiles/hpcx-rebuild
 EOF
+
+[ -L ${MODULE_FILES_DIRECTORY}/hpcx ] && rm -f ${MODULE_FILES_DIRECTORY}/hpcx
+[ -L ${MODULE_FILES_DIRECTORY}/hpcx-pmix ] && rm -f ${MODULE_FILES_DIRECTORY}/hpcx-pmix
 
 # Create symlinks for modulefiles
 ln -s ${MODULE_FILES_DIRECTORY}/hpcx-${HPCX_VERSION} ${MODULE_FILES_DIRECTORY}/hpcx

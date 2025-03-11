@@ -65,6 +65,8 @@ perl -ni -e 'print unless /exclude/' /etc/dnf/dnf.conf
 KERNEL=( $(rpm -q kernel | sed 's/kernel\-//g') )
 KERNEL=${KERNEL[-1]}
 
+dnf --disableexcludes=all install -y ucx-1.14.0-1.58415.x86_64 ucx-devel-1.14.0-1.58415.x86_64
+
 # If using rpm path comment out: 
 echo ./${MOFED_FOLDER}/mlnxofedinstall --kernel $KERNEL --kernel-sources /usr/src/kernels/${KERNEL} --add-kernel-support --skip-repo --skip-unsupported-devices-check --without-fw-update --distro ${DISTRIBUTION/rocky/rhel}
 exit

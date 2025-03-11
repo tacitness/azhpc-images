@@ -10,4 +10,4 @@ yum install -y jq wget tmux vim
 # reboot
 #dnf erase -y kernel{,-core,-modules,-tools}-4.18.0-553.8.1.el8_10.x86_64
 
-dnf install kernel-rpm-macros kernel-{debug-devel,devel,headers,modules-extra}-$(uname -r)
+dnf --disableexcludes=all install kernel-rpm-macros kernel-{debug-devel,devel,headers,modules-extra}-$(uname -r)
