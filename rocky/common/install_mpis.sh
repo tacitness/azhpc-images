@@ -3,12 +3,38 @@ set -ex
 
 HPCX_PATH=$1
 
+# Ensure PKG_CONFIG_PATH includes the hcoll pkgconfig directory
+if ! echo "$PKG_CONFIG_PATH" | grep -q "/opt/hpcx-v2.19-gcc-mlnx_ofed-redhat8-cuda12-x86_64/hcoll/lib/pkgconfig"; then
+    export PKG_CONFIG_PATH="/opt/hpcx-v2.19-gcc-mlnx_ofed-redhat8-cuda12-x86_64/hcoll/lib/pkgconfig:$PKG_CONFIG_PATH"
+fi
+
+# Test if the 'sharp_coll' flag is present in the pkg-config output for hcoll
+if pkg-config --libs hcoll | grep -q "lsharp_coll"; then
+    echo "sharp_coll flag is present in pkg-config output."
+else
+    echo "sharp_coll flag NOT found in pkg-config output."
+    # Optionally, if you know the patch is needed, you could apply it here:
+    # sed -i 's/-lhcoll$/-lhcoll -lsharp_coll/' ${HPCX_PATH}/hcoll/lib/pkgconfig/hcoll.pc
+fi
+
+
+if [ -d /usr/include/ucx_info ]; then
+    UCX_PATH=/usr
+else
+    UCX_PATH=${HPCX_PATH}/ucx
+fi
+
+
+
 PMIX_VERSION=$(jq -r '.pmix."'"$DISTRIBUTION"'".version' <<< $COMPONENT_VERSIONS)
 
 HCOLL_PATH=${HPCX_PATH}/hcoll
 UCX_PATH=${HPCX_PATH}/ucx
 INSTALL_PREFIX=/opt
 PMIX_PATH=${INSTALL_PREFIX}/pmix/${PMIX_VERSION:0:-2}
+
+# setup hcoll properly;  
+sed -i "s/\/build-result\//\/opt\//" ${HPCX_PATH}/hcoll/lib/pkgconfig/hcoll.pc
 
 # Load gcc 9.2.1
 source scl_source enable gcc-toolset-9
@@ -38,6 +64,8 @@ OMPI_SHA256=$(jq -r '.sha256' <<< $ompi_metadata)
 OMPI_DOWNLOAD_URL=$(jq -r '.url' <<< $ompi_metadata)
 TARBALL=$(basename $OMPI_DOWNLOAD_URL)
 OMPI_FOLDER=$(basename $OMPI_DOWNLOAD_URL .tar.gz)
+
+
 
 $COMMON_DIR/download_and_verify.sh $OMPI_DOWNLOAD_URL $OMPI_SHA256
 tar -xvf $TARBALL

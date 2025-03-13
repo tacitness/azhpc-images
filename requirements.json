@@ -1,29 +1,9 @@
 {
     "azcopy": {
-        "ubuntu20.04": {
-            "version": "10.17.0",
-            "release": "release20230123",
-            "sha256": "7da94b560f4de8265ae834a94b22b1ea94f1dbccc4551782eba56aa370244042"
-        },
-        "ubuntu22.04": {
-            "version": "10.17.0",
-            "release": "release20230123",
-            "sha256": "7da94b560f4de8265ae834a94b22b1ea94f1dbccc4551782eba56aa370244042"
-        },
-        "almalinux8.7": {
-            "version": "10.19.0",
-            "release": "release20230530",
-            "sha256": "71f583f80a31d54bd307b4fe068678e5cdde0dd4c8c121ee384e336340cb8017"
-        },
-        "rocky8.9": {
-            "version": "10.19.0",
-            "release": "release20230530",
-            "sha256": "71f583f80a31d54bd307b4fe068678e5cdde0dd4c8c121ee384e336340cb8017"
-        },
-        "rocky8.10": {
-            "version": "10.19.0",
-            "release": "release20230530",
-            "sha256": "71f583f80a31d54bd307b4fe068678e5cdde0dd4c8c121ee384e336340cb8017"
+        "common": {
+            "version": "10.27.1",
+            "release": "10.27.1-20241113",
+            "sha256": "b66b35c564b88c2e89f0c6b179ea52c42f1dd35924e2f0ebbbc5ff39c94f1d2c"
         }
     },
     "mofed": {
