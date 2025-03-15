@@ -2,6 +2,7 @@
 set -ex
 
 HPCX_PATH=$1
+echo "DEBUG HCOLL: ENTERED second install_mpis.sh; ${HPCX_PATH}"
 
 # Ensure PKG_CONFIG_PATH includes the hcoll pkgconfig directory
 if ! echo "$PKG_CONFIG_PATH" | grep -q "/opt/hpcx-v2.19-gcc-mlnx_ofed-redhat8-cuda12-x86_64/hcoll/lib/pkgconfig"; then
@@ -150,6 +151,8 @@ ln -s /usr/share/Modules/modulefiles/mpi/mvapich2-${MVAPICH2_VERSION} /usr/share
 ln -s /usr/share/Modules/modulefiles/mpi/openmpi-${OMPI_VERSION} /usr/share/Modules/modulefiles/mpi/openmpi
 ln -s /usr/share/Modules/modulefiles/mpi/impi_${impi_2021_version} /usr/share/Modules/modulefiles/mpi/impi-2021
 
+echo "DEBUGGING FOR HCOLL"
+env
 # cleanup downloaded tarballs and other installation files/folders
 rm -rf *.tar.gz *offline.sh
 rm -rf -- */

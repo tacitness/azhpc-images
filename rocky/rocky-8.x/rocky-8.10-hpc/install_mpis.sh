@@ -25,7 +25,7 @@ tar -xvf ${TARBALL}
 
 sed -i "s/\/build-result\//\/opt\//" ${HPCX_FOLDER}/hcoll/lib/pkgconfig/hcoll.pc
 if ! mv ${HPCX_FOLDER} ${INSTALL_PREFIX}; then rm -rf ${INSTALL_PREFIX}/${HPCX_FOLDER}; mv ${HPCX_FOLDER} ${INSTALL_PREFIX}; fi
-HPCX_PATH=${INSTALL_PREFIX}/${HPCX_FOLDER}
+export HPCX_PATH=${INSTALL_PREFIX}/${HPCX_FOLDER}
 $COMMON_DIR/write_component_version.sh "HPCX" $HPCX_VERSION
 
 # Ensure PKG_CONFIG_PATH includes the hcoll pkgconfig directory
@@ -34,13 +34,17 @@ if ! echo "$PKG_CONFIG_PATH" | grep -q "/opt/hpcx-v2.19-gcc-mlnx_ofed-redhat8-cu
 fi
 
 # Test if the 'sharp_coll' flag is present in the pkg-config output for hcoll
-if pkg-config --libs hcoll | grep -q "lsharp_coll"; then
-    echo "sharp_coll flag is present in pkg-config output."
-else
-    echo "sharp_coll flag NOT found in pkg-config output."
+#if pkg-config --libs hcoll | grep -q "lsharp_coll"; then
+#    echo "sharp_coll flag is present in pkg-config output."
+#else
+#    echo "sharp_coll flag NOT found in pkg-config output."
     # Optionally, if you know the patch is needed, you could apply it here:
     # sed -i 's/-lhcoll$/-lhcoll -lsharp_coll/' ${HPCX_PATH}/hcoll/lib/pkgconfig/hcoll.pc
-fi
+#fi
+
+echo "DEBUGGING FOR HCOLL:" 
+env | egrep -i 'HCOLL|HPCX_PATH'
+
 
 # rebuild HPCX with PMIx
 ${HPCX_PATH}/utils/hpcx_rebuild.sh --with-hcoll --ompi-extra-config "--with-pmix=${PMIX_PATH} --enable-orterun-prefix-by-default"
@@ -82,8 +86,12 @@ EOF
 ln -s ${MODULE_FILES_DIRECTORY}/hpcx-${HPCX_VERSION} ${MODULE_FILES_DIRECTORY}/hpcx
 ln -s ${MODULE_FILES_DIRECTORY}/hpcx-pmix-${HPCX_VERSION} ${MODULE_FILES_DIRECTORY}/hpcx-pmix
 
+echo "DEBUGGING FOR HCOLL:" 
+env | egrep -i 'ROCKY_COMMON_DIR|HCOLL|HPCX_PATH'
+
 # Install platform independent MPIs
-$ROCKY_COMMON_DIR/install_mpis.sh ${HPCX_PATH}
+#$ROCKY_COMMON_DIR/install_mpis.sh ${HPCX_PATH}
+$ROCKY_COMMON_DIR/install_mpis.sh /opt/hpcx-v2.19-gcc-mlnx_ofed-redhat8-cuda12-x86_64
 
 # cleanup downloaded tarball for HPC-x
 rm -rf *.tbz 
