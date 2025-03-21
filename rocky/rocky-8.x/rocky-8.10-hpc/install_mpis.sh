@@ -1,66 +1,155 @@
 #!/bin/bash
 set -ex
 
-# Load gcc 9.2.1
-source scl_source enable gcc-toolset-9
-set CC=/opt/rh/gcc-toolset-9/root/usr/bin/gcc
-set GCC=/opt/rh/gcc-toolset-9/root/usr/bin/gcc
+source ${COMMON_DIR}/utilities.sh
 
+# Load gcc
+GCC_VERSION=gcc-9.2.0
+export PATH=/opt/${GCC_VERSION}/bin:$PATH
+export LD_LIBRARY_PATH=/opt/${GCC_VERSION}/lib64:$LD_LIBRARY_PATH
+set CC=/opt/${GCC_VERSION}/bin/gcc
+set GCC=/opt/${GCC_VERSION}/bin/gcc
 
 INSTALL_PREFIX=/opt
 
-PMIX_VERSION=$(jq -r '.pmix."'"$DISTRIBUTION"'".version' <<< $COMPONENT_VERSIONS)
+pmix_metadata=$(get_component_config "pmix")
+PMIX_VERSION=$(jq -r '.version' <<< $pmix_metadata)
 PMIX_PATH=${INSTALL_PREFIX}/pmix/${PMIX_VERSION:0:-2}
 
 # Install HPC-x
-hpcx_metadata=$(jq -r '.hpcx."'"$DISTRIBUTION"'"' <<< $COMPONENT_VERSIONS)
+hpcx_metadata=$(get_component_config "hpcx")
 HPCX_VERSION=$(jq -r '.version' <<< $hpcx_metadata)
 HPCX_SHA256=$(jq -r '.sha256' <<< $hpcx_metadata)
 HPCX_DOWNLOAD_URL=$(jq -r '.url' <<< $hpcx_metadata)
 TARBALL=$(basename $HPCX_DOWNLOAD_URL)
 HPCX_FOLDER=$(basename $HPCX_DOWNLOAD_URL .tbz)
 
-$COMMON_DIR/download_and_verify.sh $HPCX_DOWNLOAD_URL $HPCX_SHA256
+$COMMON_DIR/download_and_verify.sh ${HPCX_DOWNLOAD_URL} ${HPCX_SHA256}
 tar -xvf ${TARBALL}
 
-sed -i "s/\/build-result\//\/opt\//" ${HPCX_FOLDER}/hcoll/lib/pkgconfig/hcoll.pc
-if ! mv ${HPCX_FOLDER} ${INSTALL_PREFIX}; then rm -rf ${INSTALL_PREFIX}/${HPCX_FOLDER}; mv ${HPCX_FOLDER} ${INSTALL_PREFIX}; fi
-export HPCX_PATH=${INSTALL_PREFIX}/${HPCX_FOLDER}
+# Ensure /build-result is a symlink to /opt, as expected by HPCX pkgconfig files
+if [ ! -L /build-result ]; then
+    echo "Creating symlink: /build-result -> /opt"
+    ln -s /opt /build-result
+else
+    echo "/build-result already exists, skipping symlink"
+fi
+mv ${HPCX_FOLDER} ${INSTALL_PREFIX}
+HPCX_PATH=${INSTALL_PREFIX}/${HPCX_FOLDER}
+HCOLL_PATH=${HPCX_PATH}/hcoll
+UCX_PATH=${HPCX_PATH}/ucx
 $COMMON_DIR/write_component_version.sh "HPCX" $HPCX_VERSION
 
-# Ensure PKG_CONFIG_PATH includes the hcoll pkgconfig directory
-if ! echo "$PKG_CONFIG_PATH" | grep -q "/opt/hpcx-v2.19-gcc-mlnx_ofed-redhat8-cuda12-x86_64/hcoll/lib/pkgconfig"; then
-    export PKG_CONFIG_PATH="/opt/hpcx-v2.19-gcc-mlnx_ofed-redhat8-cuda12-x86_64/hcoll/lib/pkgconfig:$PKG_CONFIG_PATH"
-fi
+echo "DEBUG: pre-hpcx install" 
+env
 
-# Test if the 'sharp_coll' flag is present in the pkg-config output for hcoll
-#if pkg-config --libs hcoll | grep -q "lsharp_coll"; then
-#    echo "sharp_coll flag is present in pkg-config output."
-#else
-#    echo "sharp_coll flag NOT found in pkg-config output."
-    # Optionally, if you know the patch is needed, you could apply it here:
-    # sed -i 's/-lhcoll$/-lhcoll -lsharp_coll/' ${HPCX_PATH}/hcoll/lib/pkgconfig/hcoll.pc
-#fi
 
-echo "DEBUGGING FOR HCOLL:" 
-env | egrep -i 'HCOLL|HPCX_PATH'
+# Install cuda-12;
+sudo dnf config-manager --add-repo https://developer.download.nvidia.com/compute/cuda/repos/rhel8/x86_64/cuda-rhel8.repo
+sudo dnf install -y cuda-toolkit-12-2
+export CUDA_HOME=/usr/local/cuda
+export PATH=$CUDA_HOME/bin:$PATH
+export LD_LIBRARY_PATH=$CUDA_HOME/lib64:$LD_LIBRARY_PATH
+export CPATH=$CUDA_HOME/include:$CPATH
+export PKG_CONFIG_PATH=$CUDA_HOME/lib64/pkgconfig:$PKG_CONFIG_PATH
+which nvcc
+nvcc --version
+ls -l /usr/local/cuda/include/cuda.h
+#ls -l /usr/local/cuda/include/gdrapi.h
 
+# Rebuild UCX with shared libraries and -fPIC
+export PKG_CONFIG_PATH=${UCX_PATH}/lib/pkgconfig:${HPCX_PATH}/hcoll/lib/pkgconfig:$PKG_CONFIG_PATH
+export LD_LIBRARY_PATH=${UCX_PATH}/lib:${HPCX_PATH}/hcoll/lib:${HPCX_PATH}/ompi/lib:$LD_LIBRARY_PATH
+
+UCX_VERSION=$(grep "^ucx-" ${HPCX_PATH}/VERSION | awk '{print $2}')
+echo "Using UCX version: ${UCX_VERSION}"
+
+curl -L -o ucx-${UCX_VERSION}.tar.gz https://github.com/openucx/ucx/archive/refs/tags/v${UCX_VERSION}.tar.gz
+tar -xvf ucx-${UCX_VERSION}.tar.gz 
+pushd ucx-${UCX_VERSION}
+
+./autogen.sh
+./configure --prefix=${UCX_PATH} --enable-shared --disable-static CFLAGS="-fPIC" CXXFLAGS="-fPIC"
+make -j$(nproc)
+make install
+
+
+# Clean previous builds if any
+make distclean || true
+# Configure UCX to build shared libraries only (disable static) and compile with -fPIC
+./configure --prefix=${UCX_PATH} --enable-shared --disable-static CFLAGS="-fPIC" CXXFLAGS="-fPIC"
+make -j$(nproc)
+make install
+popd
 
 # rebuild HPCX with PMIx
+sed -i 's|/build-result|/opt|g' /${HPCX_PATH}/ucx/lib/pkgconfig/ucx.pc
+
+export PKG_CONFIG_PATH=${HPCX_PATH}/hcoll/lib/pkgconfig:${HPCX_PATH}/ucx/lib/pkgconfig:$PKG_CONFIG_PATH
+export LD_LIBRARY_PATH=${HPCX_PATH}/hcoll/lib:${HPCX_PATH}/hcoll/debug/lib:${HPCX_PATH}/ucx/lib:${HPCX_PATH}/ompi/lib:$LD_LIBRARY_PATH
+
 ${HPCX_PATH}/utils/hpcx_rebuild.sh --with-hcoll --ompi-extra-config "--with-pmix=${PMIX_PATH} --enable-orterun-prefix-by-default"
 cp -r ${HPCX_PATH}/ompi/tests ${HPCX_PATH}/hpcx-rebuild
 
 # exclude ucx from updates
-if ! grep -q "ucx\*" /etc/yum.conf; then    
-    sed -i '$ s/$/ ucx*/' /etc/yum.conf   
-fi
+#sed -i "$ s/$/ ucx*/" /etc/dnf/dnf.conf
+
+# Install MVAPICH2
+mvapich2_metadata=$(get_component_config "mvapich2")
+MVAPICH2_VERSION=$(jq -r '.version' <<< $mvapich2_metadata)
+MVAPICH2_SHA256=$(jq -r '.sha256' <<< $mvapich2_metadata)
+MVAPICH2_DOWNLOAD_URL="http://mvapich.cse.ohio-state.edu/download/mvapich/mv2/mvapich2-${MVAPICH2_VERSION}.tar.gz"
+TARBALL=$(basename $MVAPICH2_DOWNLOAD_URL)
+MVAPICH2_FOLDER=$(basename $MVAPICH2_DOWNLOAD_URL .tar.gz)
+
+$COMMON_DIR/download_and_verify.sh $MVAPICH2_DOWNLOAD_URL $MVAPICH2_SHA256
+tar -xvf ${TARBALL}
+cd ${MVAPICH2_FOLDER}
+./configure --prefix=${INSTALL_PREFIX}/mvapich2-${MVAPICH2_VERSION} --enable-g=none --enable-fast=yes && make -j$(nproc) && make install
+cd ..
+$COMMON_DIR/write_component_version.sh "MVAPICH2" ${MVAPICH2_VERSION}
+
+
+# Install Open MPI
+ompi_metadata=$(get_component_config "ompi")
+OMPI_VERSION=$(jq -r '.version' <<< $ompi_metadata)
+OMPI_SHA256=$(jq -r '.sha256' <<< $ompi_metadata)
+OMPI_DOWNLOAD_URL=$(jq -r '.url' <<< $ompi_metadata)
+TARBALL=$(basename $OMPI_DOWNLOAD_URL)
+OMPI_FOLDER=$(basename $OMPI_DOWNLOAD_URL .tar.gz)
+
+$COMMON_DIR/download_and_verify.sh $OMPI_DOWNLOAD_URL $OMPI_SHA256
+tar -xvf $TARBALL
+cd $OMPI_FOLDER
+./configure --prefix=${INSTALL_PREFIX}/openmpi-${OMPI_VERSION} --with-ucx=${UCX_PATH} --with-hcoll=${HCOLL_PATH} --with-pmix=${PMIX_PATH} --enable-mpirun-prefix-by-default --with-platform=contrib/platform/mellanox/optimized
+make -j$(nproc) 
+make install
+cd ..
+$COMMON_DIR/write_component_version.sh "OMPI" ${OMPI_VERSION}
+
+# exclude openmpi, perftest from updates
+sed -i "$ s/$/ openmpi perftest/" /etc/dnf/dnf.conf
+
+# Install Intel MPI
+impi_metadata=$(get_component_config "impi")
+IMPI_VERSION=$(jq -r '.version' <<< $impi_metadata)
+IMPI_SHA256=$(jq -r '.sha256' <<< $impi_metadata)
+IMPI_DOWNLOAD_URL=$(jq -r '.url' <<< $impi_metadata)
+IMPI_OFFLINE_INSTALLER=$(basename $IMPI_DOWNLOAD_URL)
+
+$COMMON_DIR/download_and_verify.sh $IMPI_DOWNLOAD_URL $IMPI_SHA256
+bash $IMPI_OFFLINE_INSTALLER -s -a -s --eula accept
+
+impi_2021_version=${IMPI_VERSION:0:-2}
+mv ${INSTALL_PREFIX}/intel/oneapi/mpi/${impi_2021_version}/etc/modulefiles/mpi ${INSTALL_PREFIX}/intel/oneapi/mpi/${impi_2021_version}/etc/modulefiles/impi
+$COMMON_DIR/write_component_version.sh "IMPI" ${IMPI_VERSION}
 
 # Setup module files for MPIs
-MODULE_FILES_DIRECTORY=/usr/share/Modules/modulefiles/mpi
-mkdir -p ${MODULE_FILES_DIRECTORY}
+MPI_MODULE_FILES_DIRECTORY=${MODULE_FILES_DIRECTORY}/mpi
+mkdir -p ${MPI_MODULE_FILES_DIRECTORY}
 
 # HPC-X
-cat << EOF > ${MODULE_FILES_DIRECTORY}/hpcx-${HPCX_VERSION}
+cat << EOF >> ${MPI_MODULE_FILES_DIRECTORY}/hpcx-${HPCX_VERSION}
 #%Module 1.0
 #
 #  HPCx ${HPCX_VERSION}
@@ -70,7 +159,7 @@ module load ${HPCX_PATH}/modulefiles/hpcx
 EOF
 
 # HPC-X with PMIX
-cat << EOF > ${MODULE_FILES_DIRECTORY}/hpcx-pmix-${HPCX_VERSION}
+cat << EOF >> ${MPI_MODULE_FILES_DIRECTORY}/hpcx-pmix-${HPCX_VERSION}
 #%Module 1.0
 #
 #  HPCx ${HPCX_VERSION}
@@ -79,19 +168,87 @@ conflict        mpi
 module load ${HPCX_PATH}/modulefiles/hpcx-rebuild
 EOF
 
-[ -L ${MODULE_FILES_DIRECTORY}/hpcx ] && rm -f ${MODULE_FILES_DIRECTORY}/hpcx
-[ -L ${MODULE_FILES_DIRECTORY}/hpcx-pmix ] && rm -f ${MODULE_FILES_DIRECTORY}/hpcx-pmix
+# MVAPICH2
+cat << EOF >> ${MPI_MODULE_FILES_DIRECTORY}/mvapich2-${MVAPICH2_VERSION}
+#%Module 1.0
+#
+#  MVAPICH2 ${MVAPICH2_VERSION}
+#
+conflict        mpi
+module load ${GCC_VERSION}
+prepend-path    PATH            /opt/mvapich2-${MVAPICH2_VERSION}/bin
+prepend-path    LD_LIBRARY_PATH /opt/mvapich2-${MVAPICH2_VERSION}/lib
+prepend-path    MANPATH         /opt/mvapich2-${MVAPICH2_VERSION}/share/man
+setenv          MPI_BIN         /opt/mvapich2-${MVAPICH2_VERSION}/bin
+setenv          MPI_INCLUDE     /opt/mvapich2-${MVAPICH2_VERSION}/include
+setenv          MPI_LIB         /opt/mvapich2-${MVAPICH2_VERSION}/lib
+setenv          MPI_MAN         /opt/mvapich2-${MVAPICH2_VERSION}/share/man
+setenv          MPI_HOME        /opt/mvapich2-${MVAPICH2_VERSION}
+EOF
 
-# Create symlinks for modulefiles
-ln -s ${MODULE_FILES_DIRECTORY}/hpcx-${HPCX_VERSION} ${MODULE_FILES_DIRECTORY}/hpcx
-ln -s ${MODULE_FILES_DIRECTORY}/hpcx-pmix-${HPCX_VERSION} ${MODULE_FILES_DIRECTORY}/hpcx-pmix
+# OpenMPI
+cat << EOF >> ${MPI_MODULE_FILES_DIRECTORY}/openmpi-${OMPI_VERSION}
+#%Module 1.0
+#
+#  OpenMPI ${OMPI_VERSION}
+#
+conflict        mpi
+module load ${GCC_VERSION}
+prepend-path    PATH            /opt/openmpi-${OMPI_VERSION}/bin
+prepend-path    LD_LIBRARY_PATH /opt/openmpi-${OMPI_VERSION}/lib:${HCOLL_PATH}/lib
+prepend-path    MANPATH         /opt/openmpi-${OMPI_VERSION}/share/man
+setenv          MPI_BIN         /opt/openmpi-${OMPI_VERSION}/bin
+setenv          MPI_INCLUDE     /opt/openmpi-${OMPI_VERSION}/include
+setenv          MPI_LIB         /opt/openmpi-${OMPI_VERSION}/lib
+setenv          MPI_MAN         /opt/openmpi-${OMPI_VERSION}/share/man
+setenv          MPI_HOME        /opt/openmpi-${OMPI_VERSION}
+EOF
 
-echo "DEBUGGING FOR HCOLL:" 
-env | egrep -i 'ROCKY_COMMON_DIR|HCOLL|HPCX_PATH'
+#IntelMPI-v2021
+cat << EOF >> ${MPI_MODULE_FILES_DIRECTORY}/impi_${impi_2021_version}
+#%Module 1.0
+#
+#  Intel MPI ${impi_2021_version}
+#
+conflict        mpi
+module load /opt/intel/oneapi/mpi/${impi_2021_version}/etc/modulefiles/impi/${impi_2021_version}
+setenv          MPI_BIN         /opt/intel/oneapi/mpi/${impi_2021_version}/bin
+setenv          MPI_INCLUDE     /opt/intel/oneapi/mpi/${impi_2021_version}/include
+setenv          MPI_LIB         /opt/intel/oneapi/mpi/${impi_2021_version}/lib
+setenv          MPI_MAN         /opt/intel/oneapi/mpi/${impi_2021_version}/share/man
+setenv          MPI_HOME        /opt/intel/oneapi/mpi/${impi_2021_version}
+EOF
 
-# Install platform independent MPIs
-#$ROCKY_COMMON_DIR/install_mpis.sh ${HPCX_PATH}
-$ROCKY_COMMON_DIR/install_mpis.sh /opt/hpcx-v2.19-gcc-mlnx_ofed-redhat8-cuda12-x86_64
 
-# cleanup downloaded tarball for HPC-x
-rm -rf *.tbz 
+
+# Create symlinks for modulefiles safely
+MPI_MODULE_FILES_DIRECTORY="/usr/share/Modules/modulefiles/mpi"
+
+# HPCX
+if [ ! -e "${MPI_MODULE_FILES_DIRECTORY}/hpcx" ]; then
+    ln -s "${MPI_MODULE_FILES_DIRECTORY}/hpcx-${HPCX_VERSION}" "${MPI_MODULE_FILES_DIRECTORY}/hpcx"
+fi
+
+# HPCX with PMIx
+if [ ! -e "${MPI_MODULE_FILES_DIRECTORY}/hpcx-pmix" ]; then
+    ln -s "${MPI_MODULE_FILES_DIRECTORY}/hpcx-pmix-${HPCX_VERSION}" "${MPI_MODULE_FILES_DIRECTORY}/hpcx-pmix"
+fi
+
+# MVAPICH2
+if [ ! -e "${MPI_MODULE_FILES_DIRECTORY}/mvapich2" ]; then
+    ln -s "${MPI_MODULE_FILES_DIRECTORY}/mvapich2-${MVAPICH2_VERSION}" "${MPI_MODULE_FILES_DIRECTORY}/mvapich2"
+fi
+
+# OpenMPI
+if [ ! -e "${MPI_MODULE_FILES_DIRECTORY}/openmpi" ]; then
+    ln -s "${MPI_MODULE_FILES_DIRECTORY}/openmpi-${OMPI_VERSION}" "${MPI_MODULE_FILES_DIRECTORY}/openmpi"
+fi
+
+# Intel MPI (IMPI 2021)
+if [ ! -e "${MPI_MODULE_FILES_DIRECTORY}/impi-2021" ]; then
+    ln -s "${MPI_MODULE_FILES_DIRECTORY}/impi_${impi_2021_version}" "${MPI_MODULE_FILES_DIRECTORY}/impi-2021"
+fi
+
+# cleanup downloaded tarballs and other installation files/folders
+rm -rf *.tbz *.tar.gz *offline.sh
+rm -rf -- */

@@ -23,6 +23,9 @@ $ROCKY_COMMON_DIR/install_lustre_client.sh "8"
 $ROCKY_COMMON_DIR/../rocky-8.x/common/install_pmix.sh
 
 # install mpi libraries
+echo "DEBUG: MPIS: Entering ./install_mpis.sh"
+env | colrm 180
+pwd
 ./install_mpis.sh
 
 # install nvidia gpu driver

@@ -1,4 +1,4 @@
-#!/bin/bash
+e!/bin/bash
 set -ex
 
 mofed_metadata=$(jq -r '.mofed."'"$DISTRIBUTION"'"' <<< $COMPONENT_VERSIONS)
@@ -34,12 +34,10 @@ mlnx-ofa_kernel-devel.x86_64
 mlnx-ofa_kernel-source.x86_64
 knem.x86_64
 kmod-knem.x86_64
-ucx-knem.x86_64
 xpmem.x86_64
 kmod-xpmem.x86_64
 libxpmem.x86_64
 libxpmem-devel.x86_64
-ucx-xpmem.x86_64
 kmod-kernel-mft-mlnx.x86_64
 kmod-iser.x86_64
 kmod-isert.x86_64
@@ -50,6 +48,8 @@ uhd-tools.x86_64
 kmod-isert.x86_64
 kmod-mlnx-nfsrdma.x86_64
 kmod-mlnx-nvme.x86_64"
+
+echo "DEBUG: Exclusing: ucx-xpmem.x86_64 ucx-knem.x86_64"
 
 $COMMON_DIR/download_and_verify.sh $MLNX_OFED_DOWNLOAD_URL $MOFED_SHA256
 tar zxvf ${TARBALL}
@@ -65,7 +65,18 @@ perl -ni -e 'print unless /exclude/' /etc/dnf/dnf.conf
 KERNEL=( $(rpm -q kernel | sed 's/kernel\-//g') )
 KERNEL=${KERNEL[-1]}
 
-dnf --disableexcludes=all install -y ucx-1.14.0-1.58415.x86_64 ucx-devel-1.14.0-1.58415.x86_64
+echo "DEBUG: Excluding rpm packages: # dnf --disableexcludes=all install -y ucx-1.14.0-1.58415.x86_64 ucx-devel-1.14.0-1.58415.x86_64"
+
+# Build UCX from source; 
+## https:://github.com/openucx/ucx/archive/refs/tags/v1.18.0.zip
+#pushd /opt/
+#curl -L -O https://github.com/openucx/ucx/archive/refs/tags/v1.14.0.zip
+#unzip v1.14.0.zip
+#cd ucx-1.14.0
+#./autogen.sh
+#./configure --prefix=/opt/ucx-1.14.0 --with-hcoll
+#make && make install 
+#popd
 
 # If using rpm path comment out: 
 echo ./${MOFED_FOLDER}/mlnxofedinstall --kernel $KERNEL --kernel-sources /usr/src/kernels/${KERNEL} --add-kernel-support --skip-repo --skip-unsupported-devices-check --without-fw-update --distro ${DISTRIBUTION/rocky/rhel}

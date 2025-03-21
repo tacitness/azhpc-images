@@ -479,5 +479,32 @@
         "ubuntu22.04": {
             "version": "4.2.9-1"
         }
+    },
+    "ucx": {
+      "ubuntu20.04": {
+        "version": "1.14.0",
+        "url": "https://github.com/openucx/ucx/archive/refs/tags/v1.14.0.tar.gz",
+        "sha256": "PLACEHOLDER_SHA256_FOR_UCX_1.14.0_UBUNTU20.04"
+      },
+      "ubuntu22.04": {
+        "version": "1.14.0",
+        "url": "https://github.com/openucx/ucx/archive/refs/tags/v1.14.0.tar.gz",
+        "sha256": "PLACEHOLDER_SHA256_FOR_UCX_1.14.0_UBUNTU22.04"
+      },
+      "almalinux8.7": {
+        "version": "1.14.0",
+        "url": "https://github.com/openucx/ucx/archive/refs/tags/v1.14.0.tar.gz",
+        "sha256": "PLACEHOLDER_SHA256_FOR_UCX_1.14.0_ALMALINUX8.7"
+      },
+      "rocky8.9": {
+        "version": "1.17.0",
+        "url": "https://github.com/openucx/ucx/archive/refs/tags/v1.14.0.tar.gz",
+        "sha256": "PLACEHOLDER_SHA256_FOR_UCX_1.14.0_ROCKY8.9"
+      },
+      "rocky8.10": {
+        "version": "1.17.0",
+        "url": "https://github.com/openucx/ucx/archive/refs/tags/v1.14.0.tar.gz",
+        "sha256": "PLACEHOLDER_SHA256_FOR_UCX_1.14.0_ROCKY8.10"
+      }
     }
 }

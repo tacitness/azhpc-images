@@ -146,10 +146,23 @@ setenv          MPI_MAN         /opt/intel/oneapi/mpi/${impi_2021_version}/share
 setenv          MPI_HOME        /opt/intel/oneapi/mpi/${impi_2021_version}
 EOF
 
-# Create symlinks for modulefiles
-ln -s /usr/share/Modules/modulefiles/mpi/mvapich2-${MVAPICH2_VERSION} /usr/share/Modules/modulefiles/mpi/mvapich2
-ln -s /usr/share/Modules/modulefiles/mpi/openmpi-${OMPI_VERSION} /usr/share/Modules/modulefiles/mpi/openmpi
-ln -s /usr/share/Modules/modulefiles/mpi/impi_${impi_2021_version} /usr/share/Modules/modulefiles/mpi/impi-2021
+# Create symlinks for modulefiles safely
+MPI_MODULE_DIR="/usr/share/Modules/modulefiles/mpi"
+
+# MVAPICH2
+if [ ! -e "${MPI_MODULE_DIR}/mvapich2" ]; then
+    ln -s "${MPI_MODULE_DIR}/mvapich2-${MVAPICH2_VERSION}" "${MPI_MODULE_DIR}/mvapich2"
+fi
+
+# OpenMPI
+if [ ! -e "${MPI_MODULE_DIR}/openmpi" ]; then
+    ln -s "${MPI_MODULE_DIR}/openmpi-${OMPI_VERSION}" "${MPI_MODULE_DIR}/openmpi"
+fi
+
+# Intel MPI (IMPI 2021)
+if [ ! -e "${MPI_MODULE_DIR}/impi-2021" ]; then
+    ln -s "${MPI_MODULE_DIR}/impi_${impi_2021_version}" "${MPI_MODULE_DIR}/impi-2021"
+fi
 
 echo "DEBUGGING FOR HCOLL"
 env
