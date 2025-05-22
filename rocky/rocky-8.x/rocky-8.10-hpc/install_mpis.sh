@@ -75,7 +75,26 @@ curl -L -o ucx-${UCX_VERSION}.tar.gz https://github.com/openucx/ucx/archive/refs
 tar -xvf ucx-${UCX_VERSION}.tar.gz 
 pushd ucx-${UCX_VERSION}
 
-./autogen.sh
+# Fix for libtoolize issues - make sure ltmain.sh is in the right place
+if [ ! -f ./ltmain.sh ] && [ -f ../ltmain.sh ]; then
+    echo "Copying ltmain.sh from parent directory to current directory"
+    cp ../ltmain.sh ./
+fi
+
+# Run autogen with better error handling
+if ! ./autogen.sh; then
+    echo "Error during UCX autogen.sh. Running libtoolize manually and trying again..."
+    libtoolize --force --copy
+    if [ -f ../ltmain.sh ] && [ ! -f ./ltmain.sh ]; then
+        cp ../ltmain.sh ./
+    fi
+    aclocal -I config/m4
+    autoheader
+    automake --foreign --add-missing --copy
+    autoconf
+fi
+
+# Configure and build UCX
 ./configure --prefix=${UCX_PATH} --enable-shared --disable-static CFLAGS="-fPIC" CXXFLAGS="-fPIC"
 make -j$(nproc)
 make install
