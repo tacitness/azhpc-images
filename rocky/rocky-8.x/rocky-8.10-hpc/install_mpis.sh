@@ -34,7 +34,14 @@ if [ ! -L /build-result ]; then
 else
     echo "/build-result already exists, skipping symlink"
 fi
-mv ${HPCX_FOLDER} ${INSTALL_PREFIX}
+
+# Handle idempotent installation of HPCX
+if [ -d "${INSTALL_PREFIX}/${HPCX_FOLDER}" ]; then
+    echo "HPCX directory ${INSTALL_PREFIX}/${HPCX_FOLDER} already exists, skipping move"
+else
+    echo "Moving ${HPCX_FOLDER} to ${INSTALL_PREFIX}"
+    mv ${HPCX_FOLDER} ${INSTALL_PREFIX}
+fi
 HPCX_PATH=${INSTALL_PREFIX}/${HPCX_FOLDER}
 HCOLL_PATH=${HPCX_PATH}/hcoll
 UCX_PATH=${HPCX_PATH}/ucx
@@ -45,7 +52,7 @@ env
 
 
 # Install cuda-12;
-sudo dnf config-manager --add-repo https://developer.download.nvidia.com/compute/cuda/repos/rhel8/x86_64/cuda-rhel8.repo
+sudo dnf config-manager --add-repo https://developer.download.nvidia.com/compute/cuda/repos/rhel8/x86_64/cuda-rhel8.repo -y
 sudo dnf install -y cuda-toolkit-12-2
 export CUDA_HOME=/usr/local/cuda
 export PATH=$CUDA_HOME/bin:$PATH
@@ -141,12 +148,26 @@ $COMMON_DIR/download_and_verify.sh $IMPI_DOWNLOAD_URL $IMPI_SHA256
 bash $IMPI_OFFLINE_INSTALLER -s -a -s --eula accept
 
 impi_2021_version=${IMPI_VERSION:0:-2}
-mv ${INSTALL_PREFIX}/intel/oneapi/mpi/${impi_2021_version}/etc/modulefiles/mpi ${INSTALL_PREFIX}/intel/oneapi/mpi/${impi_2021_version}/etc/modulefiles/impi
+
+# Handle idempotent rename of MPI modulefile
+if [ -f "${INSTALL_PREFIX}/intel/oneapi/mpi/${impi_2021_version}/etc/modulefiles/impi" ]; then
+    echo "Intel MPI modulefile already renamed, skipping"
+elif [ -f "${INSTALL_PREFIX}/intel/oneapi/mpi/${impi_2021_version}/etc/modulefiles/mpi" ]; then
+    echo "Renaming Intel MPI modulefile from mpi to impi"
+    mv ${INSTALL_PREFIX}/intel/oneapi/mpi/${impi_2021_version}/etc/modulefiles/mpi ${INSTALL_PREFIX}/intel/oneapi/mpi/${impi_2021_version}/etc/modulefiles/impi
+else
+    echo "Intel MPI modulefile not found at expected location, skipping rename"
+fi
 $COMMON_DIR/write_component_version.sh "IMPI" ${IMPI_VERSION}
 
 # Setup module files for MPIs
 MPI_MODULE_FILES_DIRECTORY=${MODULE_FILES_DIRECTORY}/mpi
-mkdir -p ${MPI_MODULE_FILES_DIRECTORY}
+if [ ! -d "${MPI_MODULE_FILES_DIRECTORY}" ]; then
+    echo "Creating directory: ${MPI_MODULE_FILES_DIRECTORY}"
+    mkdir -p ${MPI_MODULE_FILES_DIRECTORY}
+else
+    echo "Directory ${MPI_MODULE_FILES_DIRECTORY} already exists"
+fi
 
 # HPC-X
 cat << EOF >> ${MPI_MODULE_FILES_DIRECTORY}/hpcx-${HPCX_VERSION}

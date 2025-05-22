@@ -33,7 +33,12 @@ systemctl restart docker
 # nvidia-docker run -e NVIDIA_VISIBLE_DEVICES=all nvidia/cuda:11.0-base nvidia-smi
 
 # disabling aufs, btrfs, zfs and devmapper snapshotter plugins
-mkdir -p /etc/containerd
+if [ ! -d "/etc/containerd" ]; then
+    echo "Creating directory: /etc/containerd"
+    mkdir -p /etc/containerd
+else
+    echo "Directory /etc/containerd already exists"
+fi
 containerd config default | sudo tee /etc/containerd/config.toml
 sed -i 's/runtime = "runc"/runtime = "nvidia-container-runtime"/g' /etc/containerd/config.toml
 # disabled_plugins = ["cri", "zfs", "aufs", "btrfs", "devmapper"]

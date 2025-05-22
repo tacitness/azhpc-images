@@ -2,7 +2,12 @@
 set -ex
 
 INSTALL_PREFIX=/opt/amd
-mkdir -p ${INSTALL_PREFIX}
+if [ ! -d "${INSTALL_PREFIX}" ]; then
+    echo "Creating directory: ${INSTALL_PREFIX}"
+    mkdir -p ${INSTALL_PREFIX}
+else
+    echo "Directory ${INSTALL_PREFIX} already exists"
+fi
 
 # Set AOCL version
 amd_metadata=$(jq -r '.amd."'"$DISTRIBUTION"'"' <<< $COMPONENT_VERSIONS)
@@ -21,7 +26,12 @@ popd
 
 # Setup module files for AMD Libraries
 MODULE_FILES_DIRECTORY=/usr/share/Modules/modulefiles/amd
-mkdir -p ${MODULE_FILES_DIRECTORY}
+if [ ! -d "${MODULE_FILES_DIRECTORY}" ]; then
+    echo "Creating directory: ${MODULE_FILES_DIRECTORY}"
+    mkdir -p ${MODULE_FILES_DIRECTORY}
+else
+    echo "Directory ${MODULE_FILES_DIRECTORY} already exists"
+fi
 
 # fftw
 cat << EOF >> ${MODULE_FILES_DIRECTORY}/aocl-${AOCL_VERSION}

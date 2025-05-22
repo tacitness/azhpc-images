@@ -9,7 +9,7 @@ CUDA_SAMPLES_VERSION=$(jq -r '.samples.version' <<< $cuda_metadata)
 
 # Install Cuda
 dnf config-manager --add-repo https://developer.download.nvidia.com/compute/cuda/repos/${CUDA_DRIVER_DISTRIBUTION}/x86_64/cuda-${CUDA_DRIVER_DISTRIBUTION}.repo
-dnf clean expire-cache
+dnf clean expire-cache -y
 dnf install cuda-toolkit-${CUDA_DRIVER_VERSION} -y
 echo 'export PATH=$PATH:/usr/local/cuda/bin' | tee -a /etc/bash.bashrc
 echo 'export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/cuda/lib64' | tee -a /etc/bash.bashrc
@@ -22,7 +22,15 @@ wget ${CUDA_SAMPLES_DOWNLOAD_URL}
 tar -xvf ${TARBALL}
 pushd ./cuda-samples-${CUDA_SAMPLES_VERSION}
 make -j $(nproc)
-mv -vT ./Samples /usr/local/cuda-${CUDA_SAMPLES_VERSION}/samples
+
+# Handle idempotent installation of CUDA samples
+if [ -d "/usr/local/cuda-${CUDA_SAMPLES_VERSION}/samples" ]; then
+    echo "CUDA samples directory already exists at /usr/local/cuda-${CUDA_SAMPLES_VERSION}/samples, skipping move"
+else
+    echo "Moving CUDA samples to /usr/local/cuda-${CUDA_SAMPLES_VERSION}/samples"
+    mkdir -p /usr/local/cuda-${CUDA_SAMPLES_VERSION}
+    mv -vT ./Samples /usr/local/cuda-${CUDA_SAMPLES_VERSION}/samples
+fi
 popd
 
 # Install NVIDIA driver

@@ -8,7 +8,7 @@ DCGM_VERSION=$(jq -r '.version' <<< $dcgm_metadata)
 # Install DCGM
 # Reference: https://developer.nvidia.com/dcgm#Downloads
 # the repo is already added during nvidia/ cuda installations
-dnf clean expire-cache
+dnf clean expire-cache -y
 dnf install -y datacenter-gpu-manager-1:${DCGM_VERSION}
 $COMMON_DIR/write_component_version.sh "DCGM" ${DCGM_VERSION}
 

@@ -13,7 +13,12 @@ sed -i 's/.*secure_path.*/Defaults    secure_path = "\/usr\/local\/sbin:\/usr\/l
 
 MONITOR_DIR=/opt/azurehpc/tools
 
-mkdir -p $MONITOR_DIR
+if [ ! -d "$MONITOR_DIR" ]; then
+    echo "Creating directory: $MONITOR_DIR"
+    mkdir -p $MONITOR_DIR
+else
+    echo "Directory $MONITOR_DIR already exists"
+fi
 
 pushd $MONITOR_DIR
     git clone https://github.com/Azure/Moneo  --branch v$MONEO_VERSION

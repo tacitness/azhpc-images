@@ -1,5 +1,7 @@
 #!/usr/bin/bash   
-sudo rpm -e jq-devel-1.6-7.el8.x86_64 jq-1.6-7.el8.x86_64
+ssudo rm -rf MLNX_OFED_LINUX-24.01-0.3.3.1-rhel8.9-x86_64.tgz* kernel-rpm-macros-131-1.el8.noarch.rpm pssh-2.3.1-29.el8.noarch.rpm
+
+sudo dnf clean all -y rpm -e jq-devel-1.6-7.el8.x86_64 jq-1.6-7.el8.x86_64
 sudo rpm -e dkms-3.0.13-1.el8.noarch 
 sudo rpm -e gcc-c++-8.5.0-22.el8_10.x86_64
 sudo rpm -e cuda-nvcc-12-4-12.4.131-1.x86_64 cuda-compiler-12-4-12.4.1-1.x86_64 cuda-toolkit-12-4-12.4.1-1.x86_64

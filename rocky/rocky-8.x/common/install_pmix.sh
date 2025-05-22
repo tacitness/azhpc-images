@@ -35,7 +35,7 @@ cd pmix-4.2.9
 #sed -i '1im4_define([OAC_LOG_MSG_NOPREFIX], [])' configure.ac
 #perl -pi -e 's/^(AC_INIT\(\[.*\]\))/\1\nAM_CONDITIONAL([PMIX_BUILD_DOCS], [false])\nAM_CONDITIONAL([PMIX_INSTALL_DOCS], [false])/' configure.ac
 
-sudo dnf install python3-sphinx python3-sphinx_rtd_theme
+sudo dnf install -y python3-sphinx python3-sphinx_rtd_theme
 
 # Run autogen to regenerate configure script
 #./autogen.pl

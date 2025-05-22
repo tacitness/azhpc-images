@@ -91,11 +91,25 @@ $COMMON_DIR/download_and_verify.sh $IMPI_DOWNLOAD_URL $IMPI_SHA256
 bash $IMPI_OFFLINE_INSTALLER -s -a -s --eula accept
 
 impi_2021_version=${IMPI_VERSION:0:-2}
-mv ${INSTALL_PREFIX}/intel/oneapi/mpi/${impi_2021_version}/etc/modulefiles/mpi ${INSTALL_PREFIX}/intel/oneapi/mpi/${impi_2021_version}/etc/modulefiles/impi
+
+# Handle idempotent rename of MPI modulefile
+if [ -f "${INSTALL_PREFIX}/intel/oneapi/mpi/${impi_2021_version}/etc/modulefiles/impi" ]; then
+    echo "Intel MPI modulefile already renamed, skipping"
+elif [ -f "${INSTALL_PREFIX}/intel/oneapi/mpi/${impi_2021_version}/etc/modulefiles/mpi" ]; then
+    echo "Renaming Intel MPI modulefile from mpi to impi"
+    mv ${INSTALL_PREFIX}/intel/oneapi/mpi/${impi_2021_version}/etc/modulefiles/mpi ${INSTALL_PREFIX}/intel/oneapi/mpi/${impi_2021_version}/etc/modulefiles/impi
+else
+    echo "Intel MPI modulefile not found at expected location, skipping rename"
+fi
 $COMMON_DIR/write_component_version.sh "IMPI" ${IMPI_VERSION}
 
 # Setup module files for MPIs
-mkdir -p /usr/share/Modules/modulefiles/mpi/
+if [ ! -d "/usr/share/Modules/modulefiles/mpi/" ]; then
+    echo "Creating directory: /usr/share/Modules/modulefiles/mpi/"
+    mkdir -p /usr/share/Modules/modulefiles/mpi/
+else
+    echo "Directory /usr/share/Modules/modulefiles/mpi/ already exists"
+fi
 
 # MVAPICH2
 cat << EOF >> /usr/share/Modules/modulefiles/mpi/mvapich2-${MVAPICH2_VERSION}

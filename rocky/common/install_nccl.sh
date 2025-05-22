@@ -1,7 +1,19 @@
 #!/bin/bash
 set -ex
 
-# Set NCCL versions
+# Set NCcd nccl-rdma-sharp-plugins
+git checkout ${NCCL_RDMA_SHARP_COMMIT}
+./autogen.sh
+
+# Create directory for NCCL RDMA sharp plugins if it doesn't exist
+if [ ! -d "/usr/local/nccl-rdma-sharp-plugins" ]; then
+    echo "Creating directory: /usr/local/nccl-rdma-sharp-plugins"
+    mkdir -p /usr/local/nccl-rdma-sharp-plugins
+else
+    echo "Directory /usr/local/nccl-rdma-sharp-plugins already exists"
+fi
+
+./configure --prefix=/usr/local/nccl-rdma-sharp-plugins --with-cuda=/usr/local/cudaersions
 NCCL_VERSION=$(jq -r '.nccl."'"$DISTRIBUTION"'".version' <<< $COMPONENT_VERSIONS)
 NCCL_RDMA_SHARP_COMMIT=$(jq -r '.nccl."'"$DISTRIBUTION"'".rdmasharpplugins.commit' <<< $COMPONENT_VERSIONS)
 CUDA_DRIVER_VERSION=$(jq -r '.cuda."'"$DISTRIBUTION"'".driver.version' <<< $COMPONENT_VERSIONS)
@@ -43,7 +55,14 @@ git clone https://github.com/NVIDIA/nccl-tests.git
 pushd nccl-tests
 make MPI=1 MPI_HOME=${HPCX_MPI_DIR} CUDA_HOME=/usr/local/cuda
 popd
-mv nccl-tests /opt/.
+
+# Handle idempotent installation of NCCL tests
+if [ -d "/opt/nccl-tests" ]; then
+    echo "NCCL tests directory already exists at /opt/nccl-tests, skipping move"
+else
+    echo "Moving nccl-tests to /opt/"
+    mv nccl-tests /opt/.
+fi
 module unload mpi/hpcx
 $COMMON_DIR/write_component_version.sh "NCCL" ${NCCL_VERSION}
 
