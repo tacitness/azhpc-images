@@ -95,27 +95,78 @@ if ! ./autogen.sh; then
 fi
 
 # Configure and build UCX
+echo "Configuring and building UCX"
 ./configure --prefix=${UCX_PATH} --enable-shared --disable-static CFLAGS="-fPIC" CXXFLAGS="-fPIC"
 make -j$(nproc)
 make install
 
-
-# Clean previous builds if any
-make distclean || true
-# Configure UCX to build shared libraries only (disable static) and compile with -fPIC
-./configure --prefix=${UCX_PATH} --enable-shared --disable-static CFLAGS="-fPIC" CXXFLAGS="-fPIC"
-make -j$(nproc)
-make install
+# No need to build twice - removing duplicate build to avoid errors
+# If we want to keep it for some reason, we need to handle errors gracefully
+# make distclean || true
+# ./configure --prefix=${UCX_PATH} --enable-shared --disable-static CFLAGS="-fPIC" CXXFLAGS="-fPIC"
+# make -j$(nproc)
+# make install
 popd
 
 # rebuild HPCX with PMIx
-sed -i 's|/build-result|/opt|g' /${HPCX_PATH}/ucx/lib/pkgconfig/ucx.pc
+# Fix UCX pkg-config paths
+echo "Checking for UCX pkgconfig file at: ${HPCX_PATH}/ucx/lib/pkgconfig/ucx.pc"
+if [ -f "${HPCX_PATH}/ucx/lib/pkgconfig/ucx.pc" ]; then
+    echo "Fixing UCX pkgconfig file paths at expected location"
+    sed -i 's|/build-result|/opt|g' "${HPCX_PATH}/ucx/lib/pkgconfig/ucx.pc"
+else
+    echo "UCX pkgconfig file not found at expected location, searching for it..."
+    UCX_PC_FILE=$(find /opt -name "ucx.pc" | head -n 1)
+    if [ -n "$UCX_PC_FILE" ]; then
+        echo "Found UCX pkgconfig file at: ${UCX_PC_FILE}"
+        sed -i 's|/build-result|/opt|g' "${UCX_PC_FILE}"
+    else
+        echo "WARNING: Could not find UCX pkgconfig file"
+    fi
+fi
 
 export PKG_CONFIG_PATH=${HPCX_PATH}/hcoll/lib/pkgconfig:${HPCX_PATH}/ucx/lib/pkgconfig:$PKG_CONFIG_PATH
 export LD_LIBRARY_PATH=${HPCX_PATH}/hcoll/lib:${HPCX_PATH}/hcoll/debug/lib:${HPCX_PATH}/ucx/lib:${HPCX_PATH}/ompi/lib:$LD_LIBRARY_PATH
 
-${HPCX_PATH}/utils/hpcx_rebuild.sh --with-hcoll --ompi-extra-config "--with-pmix=${PMIX_PATH} --enable-orterun-prefix-by-default"
-cp -r ${HPCX_PATH}/ompi/tests ${HPCX_PATH}/hpcx-rebuild
+# Handle HPCX rebuild directory if it already exists
+if [ -d "${HPCX_PATH}/hpcx-rebuild" ]; then
+    echo "Directory ${HPCX_PATH}/hpcx-rebuild already exists, removing it first"
+    rm -rf "${HPCX_PATH}/hpcx-rebuild"
+fi
+
+# Now rebuild HPCX with PMIx
+if [ -f "${HPCX_PATH}/utils/hpcx_rebuild.sh" ]; then
+    echo "Running HPCX rebuild with PMIx"
+    ${HPCX_PATH}/utils/hpcx_rebuild.sh --with-hcoll --ompi-extra-config "--with-pmix=${PMIX_PATH} --enable-orterun-prefix-by-default"
+else
+    # In case the path is somehow wrong, try with a more relative path
+    echo "HPCX rebuild script not found at ${HPCX_PATH}/utils/hpcx_rebuild.sh"
+    echo "Trying alternative locations..."
+    
+    if [ -f "./hpcx-v*/utils/hpcx_rebuild.sh" ]; then
+        REBUILD_SCRIPT=$(find ./hpcx-v*/utils/hpcx_rebuild.sh | head -n 1)
+        echo "Found rebuild script at ${REBUILD_SCRIPT}"
+        ${REBUILD_SCRIPT} --with-hcoll --ompi-extra-config "--with-pmix=${PMIX_PATH} --enable-orterun-prefix-by-default"
+    elif [ -d "/opt" ] && [ -f "/opt/hpcx-v*/utils/hpcx_rebuild.sh" ]; then
+        REBUILD_SCRIPT=$(find /opt/hpcx-v*/utils/hpcx_rebuild.sh | head -n 1)
+        echo "Found rebuild script at ${REBUILD_SCRIPT}"
+        ${REBUILD_SCRIPT} --with-hcoll --ompi-extra-config "--with-pmix=${PMIX_PATH} --enable-orterun-prefix-by-default"
+    else
+        echo "ERROR: Could not find HPCX rebuild script. Installation may be incomplete."
+        echo "Current directory: $(pwd)"
+        echo "Listing potential rebuild script locations:"
+        find . -name hpcx_rebuild.sh || true
+        find /opt -name hpcx_rebuild.sh || true
+    fi
+fi
+
+# Copy test files if they don't already exist in the destination
+if [ -d "${HPCX_PATH}/ompi/tests" ]; then
+    echo "Copying OMPI tests to HPCX rebuild directory"
+    cp -r ${HPCX_PATH}/ompi/tests ${HPCX_PATH}/hpcx-rebuild 2>/dev/null || true
+else
+    echo "OMPI tests directory not found, skipping copy"
+fi
 
 # exclude ucx from updates
 #sed -i "$ s/$/ ucx*/" /etc/dnf/dnf.conf
