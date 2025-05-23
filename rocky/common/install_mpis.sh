@@ -96,8 +96,8 @@ INSTALL_STATUS=$?
 echo "Intel MPI installer exit status: $INSTALL_STATUS"
 set -e  # Re-enable exit on error
 
-# First check if it mentions "already installed" regardless of the exit code
-if echo "$OUTPUT" | grep -q "already installed"; then
+# Check for any "already installed" messages with various possible phrasings
+if echo "$OUTPUT" | grep -q -E "already installed|is already installed|Cannot install.*It is already installed"; then
     echo "Intel MPI ${IMPI_VERSION} is already installed. Continuing..."
     # Print the output for debugging purposes
     echo "Installer output: $OUTPUT"
