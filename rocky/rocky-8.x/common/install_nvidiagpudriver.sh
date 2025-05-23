@@ -16,20 +16,40 @@ echo 'export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/cuda/lib64' | tee -a /e
 $COMMON_DIR/write_component_version.sh "CUDA" ${CUDA_DRIVER_VERSION}
 
 # Download CUDA samples
-TARBALL="v${CUDA_SAMPLES_VERSION}.tar.gz"
+# Normalize CUDA version for GitHub tag (strip minor version and ensure format v12.2) 
+CUDA_SAMPLES_TAG_VERSION=$(echo "${CUDA_SAMPLES_VERSION}" | sed 's/-/\./g' | cut -d'.' -f1,2)
+CUDA_MAJOR_VERSION=$(echo "${CUDA_SAMPLES_TAG_VERSION}" | cut -d'.' -f1)
+TARBALL="v${CUDA_SAMPLES_TAG_VERSION}.tar.gz"
 CUDA_SAMPLES_DOWNLOAD_URL=https://github.com/NVIDIA/cuda-samples/archive/refs/tags/${TARBALL}
-wget ${CUDA_SAMPLES_DOWNLOAD_URL}
+echo "Attempting to download CUDA samples from ${CUDA_SAMPLES_DOWNLOAD_URL}"
+wget ${CUDA_SAMPLES_DOWNLOAD_URL} || {
+    echo "Failed to download CUDA samples with tag v${CUDA_SAMPLES_TAG_VERSION}"
+    # Try a generic fallback to just major version (e.g., v12)
+    echo "Trying fallback to v${CUDA_MAJOR_VERSION} tag..."
+    TARBALL="v${CUDA_MAJOR_VERSION}.tar.gz"
+    CUDA_SAMPLES_DOWNLOAD_URL=https://github.com/NVIDIA/cuda-samples/archive/refs/tags/${TARBALL}
+    wget ${CUDA_SAMPLES_DOWNLOAD_URL} || {
+        echo "Failed with v${CUDA_MAJOR_VERSION} too, falling back to v12.2 which is known to exist"
+        TARBALL="v12.2.tar.gz"
+        CUDA_SAMPLES_DOWNLOAD_URL=https://github.com/NVIDIA/cuda-samples/archive/refs/tags/${TARBALL}
+        wget ${CUDA_SAMPLES_DOWNLOAD_URL}
+    }
+}
 tar -xvf ${TARBALL}
-pushd ./cuda-samples-${CUDA_SAMPLES_VERSION}
+# Extract the actual version from the extracted directory name
+CUDA_SAMPLES_DIR=$(find . -maxdepth 1 -type d -name "cuda-samples-*" | head -1)
+CUDA_SAMPLES_EXTRACTED_VERSION=$(basename ${CUDA_SAMPLES_DIR} | sed 's/cuda-samples-//')
+echo "Using CUDA samples version: ${CUDA_SAMPLES_EXTRACTED_VERSION}"
+pushd ${CUDA_SAMPLES_DIR}
 make -j $(nproc)
 
 # Handle idempotent installation of CUDA samples
-if [ -d "/usr/local/cuda-${CUDA_SAMPLES_VERSION}/samples" ]; then
-    echo "CUDA samples directory already exists at /usr/local/cuda-${CUDA_SAMPLES_VERSION}/samples, skipping move"
+if [ -d "/usr/local/cuda-${CUDA_DRIVER_VERSION}/samples" ]; then
+    echo "CUDA samples directory already exists at /usr/local/cuda-${CUDA_DRIVER_VERSION}/samples, skipping move"
 else
-    echo "Moving CUDA samples to /usr/local/cuda-${CUDA_SAMPLES_VERSION}/samples"
-    mkdir -p /usr/local/cuda-${CUDA_SAMPLES_VERSION}
-    mv -vT ./Samples /usr/local/cuda-${CUDA_SAMPLES_VERSION}/samples
+    echo "Moving CUDA samples to /usr/local/cuda-${CUDA_DRIVER_VERSION}/samples"
+    mkdir -p /usr/local/cuda-${CUDA_DRIVER_VERSION}
+    mv -vT ./Samples /usr/local/cuda-${CUDA_DRIVER_VERSION}/samples
 fi
 popd
 

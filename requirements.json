@@ -236,7 +236,7 @@
                 "distribution": "rhel8"
             },
             "samples": {
-                "version": "12.2.2"
+                "version": "12.2"
             }   
         }
     },
