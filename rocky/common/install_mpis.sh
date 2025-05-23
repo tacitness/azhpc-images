@@ -1,6 +1,50 @@
 #!/bin/bash
 set -ex
 
+# Complete Intel MPI cleanup before install
+intel_cleanup() {
+  echo "Performing thorough Intel MPI cleanup..."
+  
+  # Remove main Intel directories
+  rm -rf /opt/intel
+  rm -rf /opt/intel_licenses
+  
+  # Remove package manager references
+  if command -v rpm &> /dev/null; then
+    rpm -qa | grep -i intel | xargs -r rpm -e --nodeps
+  fi
+  
+  # Clean up potential hidden directories
+  rm -rf ~/.intel
+  rm -rf ~/.pki/nssdb/*intel*
+  
+  # Clean installer caches
+  rm -rf /tmp/intel*
+  rm -rf /tmp/*offline*
+  
+  # Remove modulefiles
+  rm -rf /usr/share/Modules/modulefiles/mpi/impi*
+  
+  # Additional Intel directories
+  rm -rf /etc/intel
+  rm -rf /var/intel
+  
+  # Clean up potential environment settings
+  unset I_MPI_ROOT
+  unset INTEL_LICENSE_FILE
+  unset IPPROOT
+  unset IPP_TARGET_ARCH
+  unset MKLROOT
+  
+  # Flush shared library cache
+  ldconfig
+  
+  echo "Intel MPI cleanup completed"
+}
+
+# Call the cleanup function before installing Intel MPI
+intel_cleanup
+
 HPCX_PATH=$1
 echo "DEBUG HCOLL: ENTERED second install_mpis.sh; ${HPCX_PATH}"
 
@@ -90,7 +134,7 @@ IMPI_OFFLINE_INSTALLER=$(basename $IMPI_DOWNLOAD_URL)
 # Check for existing Intel installation and remove it to ensure clean install
 if [ -d "/opt/intel" ]; then
     echo "Found existing Intel installation directory, removing it..."
-    rm -rf /opt/intel
+    rm -rf /opt/intel /tmp/root/intel_oneapi_installer 
 fi
 
 $COMMON_DIR/download_and_verify.sh $IMPI_DOWNLOAD_URL $IMPI_SHA256
