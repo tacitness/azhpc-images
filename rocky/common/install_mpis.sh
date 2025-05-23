@@ -88,7 +88,19 @@ IMPI_DOWNLOAD_URL=$(jq -r '.url' <<< $impi_metadata)
 IMPI_OFFLINE_INSTALLER=$(basename $IMPI_DOWNLOAD_URL)
 
 $COMMON_DIR/download_and_verify.sh $IMPI_DOWNLOAD_URL $IMPI_SHA256
-bash $IMPI_OFFLINE_INSTALLER -s -a -s --eula accept
+# Run the Intel MPI installer with error handling for already installed case
+echo "Installing Intel MPI ${IMPI_VERSION}..."
+OUTPUT=$(bash $IMPI_OFFLINE_INSTALLER -s -a -s --eula accept 2>&1) || {
+    # Check if the error is just that it's already installed
+    if echo "$OUTPUT" | grep -q "already installed"; then
+        echo "Intel MPI ${IMPI_VERSION} is already installed. Continuing..."
+    else
+        # If it's some other error, show the output and exit
+        echo "Error installing Intel MPI:"
+        echo "$OUTPUT"
+        exit 1
+    fi
+}
 
 impi_2021_version=${IMPI_VERSION:0:-2}
 
