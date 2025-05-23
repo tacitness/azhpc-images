@@ -25,7 +25,7 @@
         },
         "rocky8.10": {
             "version": "24.10-1.1.4.0",
-            "sha256": "c9a7907479ff3e6da8cddafc108f57678ee258fa269765cbb96b5cb94095e8d4"
+            "sha256": "ecab20b001118450737999f1868c957032382e4800dde76720f58ae89cbc88df"
         }
     },
     "hpcx": {
