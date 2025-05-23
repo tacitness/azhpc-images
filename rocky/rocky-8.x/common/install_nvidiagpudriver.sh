@@ -59,9 +59,45 @@ tar -xvf $TARBALL
 
 pushd gdrcopy-${GDRCOPY_VERSION}/packages/
 CUDA=/usr/local/cuda ./build-rpm-packages.sh
-rpm -Uvh gdrcopy-kmod-${GDRCOPY_VERSION}-1dkms.noarch.el8.rpm
-rpm -Uvh gdrcopy-${GDRCOPY_VERSION}-1.x86_64.el8.rpm
-rpm -Uvh gdrcopy-devel-${GDRCOPY_VERSION}-1.noarch.el8.rpm
+
+# Check if GDRCopy is already installed with a newer version
+echo "Checking existing GDRCopy installations..."
+INSTALLED_VERSION=$(rpm -q --queryformat '%{VERSION}' gdrcopy-kmod 2>/dev/null || echo "not_installed")
+echo "Installed GDRCopy version: ${INSTALLED_VERSION}"
+echo "Version to install: ${GDRCOPY_VERSION}"
+
+# Function to compare versions
+version_greater_equal() {
+    printf '%s\n%s\n' "$2" "$1" | sort -V -C
+    return $?
+}
+
+# Install packages with appropriate flags
+install_rpm() {
+    local package=$1
+    local force_flag=$2
+    
+    if [ "$force_flag" = "force" ]; then
+        echo "Force installing ${package}"
+        rpm -Uvh --force ${package}
+    else
+        echo "Installing ${package}"
+        rpm -Uvh ${package} || echo "Warning: Failed to install ${package}, may be already installed or newer version present"
+    fi
+}
+
+# Install GDRCopy packages, handling the case when a newer version exists
+if [ "$INSTALLED_VERSION" = "not_installed" ] || ! version_greater_equal "$INSTALLED_VERSION" "${GDRCOPY_VERSION}"; then
+    echo "Installing GDRCopy ${GDRCOPY_VERSION}..."
+    # Use regular RPM install
+    install_rpm gdrcopy-kmod-${GDRCOPY_VERSION}-1dkms.noarch.el8.rpm
+    install_rpm gdrcopy-${GDRCOPY_VERSION}-1.x86_64.el8.rpm
+    install_rpm gdrcopy-devel-${GDRCOPY_VERSION}-1.noarch.el8.rpm
+else
+    echo "Newer version of GDRCopy (${INSTALLED_VERSION}) is already installed, skipping installation of version ${GDRCOPY_VERSION}"
+fi
+
+# Add to exclude list from updates regardless
 sed -i "$ s/$/ gdrcopy*/" /etc/dnf/dnf.conf
 popd
 
