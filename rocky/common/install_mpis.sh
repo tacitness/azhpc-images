@@ -93,19 +93,20 @@ echo "Installing Intel MPI ${IMPI_VERSION}..."
 set +e  # Temporarily disable exit on error
 OUTPUT=$(bash $IMPI_OFFLINE_INSTALLER -s -a -s --eula accept 2>&1)
 INSTALL_STATUS=$?
+echo "Intel MPI installer exit status: $INSTALL_STATUS"
 set -e  # Re-enable exit on error
 
-# Check the installation result
-if [ $INSTALL_STATUS -ne 0 ]; then
-    # Check if the error is just that it's already installed
-    if echo "$OUTPUT" | grep -q "already installed"; then
-        echo "Intel MPI ${IMPI_VERSION} is already installed. Continuing..."
-    else
-        # If it's some other error, show the output and exit
-        echo "Error installing Intel MPI:"
-        echo "$OUTPUT"
-        exit 1
-    fi
+# First check if it mentions "already installed" regardless of the exit code
+if echo "$OUTPUT" | grep -q "already installed"; then
+    echo "Intel MPI ${IMPI_VERSION} is already installed. Continuing..."
+    # Print the output for debugging purposes
+    echo "Installer output: $OUTPUT"
+# Then check the installation result for other errors
+elif [ $INSTALL_STATUS -ne 0 ]; then
+    # If it's some other error, show the output and exit
+    echo "Error installing Intel MPI:"
+    echo "$OUTPUT"
+    exit 1
 else
     echo "Intel MPI ${IMPI_VERSION} installation completed successfully."
 fi
