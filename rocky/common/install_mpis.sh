@@ -8,7 +8,7 @@ intel_cleanup() {
   # Remove main Intel directories
   rm -rf /opt/intel
   rm -rf /opt/intel_licenses
-  
+  rm -rf /var/intel 
   # Remove package manager references
   if command -v rpm &> /dev/null; then
     rpm -qa | grep -i intel | xargs -r rpm -e --nodeps
