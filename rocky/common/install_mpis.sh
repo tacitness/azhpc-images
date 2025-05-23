@@ -87,8 +87,14 @@ IMPI_SHA256=$(jq -r '.sha256' <<< $impi_metadata)
 IMPI_DOWNLOAD_URL=$(jq -r '.url' <<< $impi_metadata)
 IMPI_OFFLINE_INSTALLER=$(basename $IMPI_DOWNLOAD_URL)
 
+# Check for existing Intel installation and remove it to ensure clean install
+if [ -d "/opt/intel" ]; then
+    echo "Found existing Intel installation directory, removing it..."
+    rm -rf /opt/intel
+fi
+
 $COMMON_DIR/download_and_verify.sh $IMPI_DOWNLOAD_URL $IMPI_SHA256
-# Run the Intel MPI installer with error handling for already installed case
+# Run the Intel MPI installer
 echo "Installing Intel MPI ${IMPI_VERSION}..."
 set +e  # Temporarily disable exit on error
 OUTPUT=$(bash $IMPI_OFFLINE_INSTALLER -s -a -s --eula accept 2>&1)
