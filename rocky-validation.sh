@@ -2,10 +2,26 @@
 # Rocky Linux HPC Image Validation Script
 # Based on the azhpc-images test framework
 
-set -e
+# Check if running as root and suggest alternatives
+if [ "$EUID" -eq 0 ]; then
+    echo "NOTE: Running as root. Some MPI tests may fail."
+    echo "Consider running as a regular user with: sudo -u rocky $0"
+fi
+
+# Use -e to exit on first error, or comment out to continue through errors
+#set -e
 
 # Initialize error counter
 ERROR_COUNT=0
+
+# Determine if we're running on actual HPC hardware
+HAS_INFINIBAND=0
+if lspci | grep -i infiniband >/dev/null; then
+    HAS_INFINIBAND=1
+    echo "Detected InfiniBand hardware - will perform full hardware tests"
+else
+    echo "No InfiniBand hardware detected - will perform basic validation only"
+fi
 
 echo "=== Rocky Linux HPC Image Validation Script ==="
 echo "$(date)"
@@ -165,15 +181,23 @@ function verify_hpcx_installation_root {
 
     check_exists "${MODULE_FILES_ROOT}/mpi/hpcx"
     
+    # Use appropriate transport based on hardware
+    local UCX_TRANSPORT="tcp"
+    if [ "$HAS_INFINIBAND" -eq 1 ]; then
+        UCX_TRANSPORT="rc"
+    fi
+    
+    echo "Using UCX transport: $UCX_TRANSPORT"
+    
     module load mpi/hpcx
-    mpirun --allow-run-as-root -np 2 --map-by ppr:2:node -x UCX_TLS=rc ${HPCX_OSU_DIR}/osu_latency
+    mpirun --allow-run-as-root -np 2 --map-by ppr:2:node -x UCX_TLS=$UCX_TRANSPORT ${HPCX_OSU_DIR}/osu_latency
     check_exit_code "HPC-X" "Failed to run HPC-X"
     module unload mpi/hpcx
 
     check_exists "${MODULE_FILES_ROOT}/mpi/hpcx-pmix"
 
     module load mpi/hpcx-pmix
-    mpirun --allow-run-as-root -np 2 --map-by ppr:2:node -x UCX_TLS=rc ${HPCX_OSU_DIR}/osu_latency
+    mpirun --allow-run-as-root -np 2 --map-by ppr:2:node -x UCX_TLS=$UCX_TRANSPORT ${HPCX_OSU_DIR}/osu_latency
     check_exit_code "HPC-X with PMIx" "Failed to run HPC-X with PMIx"
     module unload mpi/hpcx-pmix
     module purge
@@ -223,6 +247,14 @@ function verify_nccl_installation_root {
         cat /etc/nccl.conf
     fi
 
+    # Use appropriate transport based on hardware
+    local UCX_TRANSPORT="tcp"
+    if [ "$HAS_INFINIBAND" -eq 1 ]; then
+        UCX_TRANSPORT="rc"
+    fi
+    
+    echo "Using UCX transport: $UCX_TRANSPORT"
+    
     module load mpi/hpcx
 
     case ${VMSIZE} in
@@ -230,7 +262,7 @@ function verify_nccl_installation_root {
             -x LD_LIBRARY_PATH \
             --map-by ppr:4:node \
             -mca coll_hcoll_enable 0 \
-            -x UCX_TLS=tcp \
+            -x UCX_TLS=$UCX_TRANSPORT \
             -x CUDA_DEVICE_ORDER=PCI_BUS_ID \
             -x NCCL_SOCKET_IFNAME=eth0 \
             -x NCCL_DEBUG=WARN \
@@ -239,7 +271,7 @@ function verify_nccl_installation_root {
             --map-by ppr:8:node \
             -x LD_LIBRARY_PATH=/usr/local/nccl-rdma-sharp-plugins/lib:$LD_LIBRARY_PATH \
             -mca coll_hcoll_enable 0 \
-            -x UCX_TLS=tcp \
+            -x UCX_TLS=$UCX_TRANSPORT \
             -x CUDA_DEVICE_ORDER=PCI_BUS_ID \
             -x NCCL_SOCKET_IFNAME=eth0 \
             -x NCCL_DEBUG=WARN \
@@ -306,6 +338,14 @@ echo -e "\n=== Validation Summary ==="
 if [ -n "$ERROR_COUNT" ] && [ "$ERROR_COUNT" -gt 0 ]; then
     echo "Validation completed with $ERROR_COUNT errors."
     echo "Review the output above for details on failed components."
+    
+    if [ "$HAS_INFINIBAND" -eq 0 ]; then
+        echo ""
+        echo "NOTE: This machine does not have InfiniBand hardware."
+        echo "Some errors are expected when validating on non-HPC hardware."
+        echo "For complete validation, run this script on an Azure HPC VM instance."
+        echo "Consider using: Standard_HB120rs_v3, Standard_ND40rs_v2, or similar."
+    fi
 else
     echo "All validation tests completed successfully!"
 fi
