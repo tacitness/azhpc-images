@@ -24,8 +24,8 @@
             "sha256": "d40ee5a977f8db7557df8c15950bfb08187f2291ba0328b01e62c422ccef1d66"
         },
         "rocky8.10": {
-            "version": "23.10-3.2.2.0",
-	    "sha256": "c9a7907479ff3e6da8cddafc108f57678ee258fa269765cbb96b5cb94095e8d4"
+            "version": "24.10-1.1.4.0",
+            "sha256": "c9a7907479ff3e6da8cddafc108f57678ee258fa269765cbb96b5cb94095e8d4"
         }
     },
     "hpcx": {
@@ -232,11 +232,11 @@
         },
         "rocky8.10": {
             "driver": {
-                "version": "12-4",
+                "version": "12-2",
                 "distribution": "rhel8"
             },
             "samples": {
-                "version": "12.4"
+                "version": "12.2.2"
             }   
         }
     },
@@ -254,7 +254,7 @@
             "version": "2.3"
         },
         "rocky8.10": {
-            "version": "2.3"
+            "version": "2.4"
         }
     },
     "nccl": {
@@ -303,7 +303,7 @@
             "version": "3.3.3"
         },
         "rocky8.10": {
-            "version": "3.3.3"
+            "version": "4.2.2"
         }
     },
     "intel_one_mkl": {
@@ -502,9 +502,9 @@
         "sha256": "PLACEHOLDER_SHA256_FOR_UCX_1.14.0_ROCKY8.9"
       },
       "rocky8.10": {
-        "version": "1.17.0",
-        "url": "https://github.com/openucx/ucx/archive/refs/tags/v1.14.0.tar.gz",
-        "sha256": "PLACEHOLDER_SHA256_FOR_UCX_1.14.0_ROCKY8.10"
+        "version": "1.15.0",
+        "url": "https://github.com/openucx/ucx/archive/refs/tags/v1.15.0.tar.gz",
+        "sha256": "a550b5f8ab4055a69113e3b647099a782e354f51eb759899dc39b7feffb7e703"
       }
     }
 }
