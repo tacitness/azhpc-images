@@ -9,6 +9,54 @@ if [ -f "/etc/dnf/dnf.conf" ]; then
     echo "DNF configuration exclude lines removed"
 fi
 
+# Complete Intel MPI cleanup before install
+intel_cleanup() {
+  echo "Performing thorough Intel MPI cleanup..."
+  
+  # Remove main Intel directories
+  rm -rf /opt/intel
+  rm -rf /opt/intel_licenses
+  rm -rf /var/intel 
+  rm -rf /tmp/root/intel*
+
+  # Remove package manager references
+  if command -v rpm &> /dev/null; then
+    rpm -qa | grep -i intel | xargs -r rpm -e --nodeps
+  fi
+  
+  # Clean up potential hidden directories
+  rm -rf ~/.intel
+  rm -rf ~/.pki/nssdb/*intel*
+  rm -rf hpcx-v2.19-gcc-mlnx_ofed-redhat8-cuda12-x86_64* MLNX_OFED_LINUX-24.10-1.1.4.0-rhel8.10-x86_64* mvapich2* openmpi* ucx* 
+
+  # Clean installer caches
+  rm -rf /tmp/intel*
+  rm -rf /tmp/*offline*
+  rm -rf /tmp/tmpjsonlogdir.HiIHTH/intel-sw-install-history.json.log 
+
+  # Remove modulefiles
+  rm -rf /usr/share/Modules/modulefiles/mpi/impi*
+  
+  # Additional Intel directories
+  rm -rf /etc/intel
+  rm -rf /var/intel
+  
+  # Clean up potential environment settings
+  unset I_MPI_ROOT
+  unset INTEL_LICENSE_FILE
+  unset IPPROOT
+  unset IPP_TARGET_ARCH
+  unset MKLROOT
+  
+  # Flush shared library cache
+  ldconfig
+  
+  echo "Intel MPI cleanup completed"
+}
+
+# Call the cleanup function before installing Intel MPI
+intel_cleanup
+
 # install pre-requisites
 ./install_prerequisites.sh
 
