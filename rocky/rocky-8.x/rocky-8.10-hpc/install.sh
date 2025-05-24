@@ -3,10 +3,17 @@ set -ex
 
 # Clean up DNF config at the beginning - simple approach to remove all exclude lines
 if [ -f "/etc/dnf/dnf.conf" ]; then
-    echo "Cleaning up DNF configuration excludes..."
-    # Remove all exclude lines - they will be added back by individual scripts
-    sed -i '/^exclude=/d' /etc/dnf/dnf.conf
-    echo "DNF configuration exclude lines removed"
+    echo "Cleaning up DNF configuration..."
+    # Backup the original file
+    cp /etc/dnf/dnf.conf /etc/dnf/dnf.conf.bak
+    # Fix any corrupted lines and ensure clean configuration
+    grep -v "^exclude=" /etc/dnf/dnf.conf | grep -v "openmpi perftest" > /etc/dnf/dnf.conf.clean
+    mv /etc/dnf/dnf.conf.clean /etc/dnf/dnf.conf
+    # Ensure skip_if_unavailable is properly set without extra content
+    if grep -q "^skip_if_unavailable=" /etc/dnf/dnf.conf; then
+        sed -i 's/^skip_if_unavailable=.*/skip_if_unavailable=False/' /etc/dnf/dnf.conf
+    fi
+    echo "DNF configuration cleaned"
 fi
 
 # Complete Intel MPI cleanup before install
