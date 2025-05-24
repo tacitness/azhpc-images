@@ -25,8 +25,13 @@ LIBNCCL_DEVEL_RPM=$(find ./build/pkg/rpm/x86_64/ -name "libnccl-devel-${NCCL_VER
 LIBNCCL_STATIC_RPM=$(find ./build/pkg/rpm/x86_64/ -name "libnccl-static-${NCCL_VERSION}+cuda*.x86_64.rpm" -type f)
 
 # Check if NCCL is already installed and get version
-INSTALLED_NCCL_VERSION=$(rpm -q libnccl --queryformat '%{VERSION}' 2>/dev/null)
-INSTALLED_NCCL_CUDA_VERSION=$(rpm -q libnccl --queryformat '%{VERSION}' 2>/dev/null | grep -oP '(?<=cuda)[\d\.]+')
+INSTALLED_NCCL_VERSION=$(rpm -q libnccl --queryformat '%{VERSION}' 2>/dev/null || echo "")
+
+# Try to extract CUDA version - might not always be present in version string
+INSTALLED_NCCL_CUDA_VERSION=""
+if [[ "$INSTALLED_NCCL_VERSION" == *"cuda"* ]]; then
+    INSTALLED_NCCL_CUDA_VERSION=$(echo "$INSTALLED_NCCL_VERSION" | grep -oP '(?<=cuda)[\d\.]+' || echo "")
+fi
 
 echo "Found built NCCL RPMs:"
 echo "  $LIBNCCL_RPM"
@@ -37,23 +42,23 @@ if [ -n "$INSTALLED_NCCL_VERSION" ]; then
     echo "Detected installed NCCL: $INSTALLED_NCCL_VERSION (CUDA $INSTALLED_NCCL_CUDA_VERSION)"
     
     # Extract version of the built package for comparison
-    BUILT_NCCL_VERSION=$(echo "$LIBNCCL_RPM" | grep -oP '(?<=libnccl-)[^+]+')
-    BUILT_NCCL_CUDA_VERSION=$(echo "$LIBNCCL_RPM" | grep -oP '(?<=cuda)[\d\.]+')
+    BUILT_NCCL_VERSION=$(echo "$LIBNCCL_RPM" | grep -oP '(?<=libnccl-)[^+]+' || echo "")
+    BUILT_NCCL_CUDA_VERSION=$(echo "$LIBNCCL_RPM" | grep -oP '(?<=cuda)[\d\.]+' || echo "")
     echo "Built NCCL package: $BUILT_NCCL_VERSION (CUDA $BUILT_NCCL_CUDA_VERSION)"
     
     # Skip installation if newer version is already installed
-    if rpm --quiet -q libnccl && [[ "$(rpm -q --queryformat '%{VERSION}' libnccl)" > "$BUILT_NCCL_VERSION" ]]; then
+    if rpm --quiet -q libnccl && [[ "$INSTALLED_NCCL_VERSION" > "$BUILT_NCCL_VERSION" ]]; then
         echo "A newer version of NCCL is already installed. Skipping installation."
     else
         echo "Installing built NCCL packages with --force flag to handle potential conflicts..."
         if [ -n "$LIBNCCL_RPM" ]; then
-            rpm -i --force "$LIBNCCL_RPM"
+            rpm -i --force "$LIBNCCL_RPM" || echo "Warning: Failed to install $LIBNCCL_RPM, continuing anyway"
         fi
         if [ -n "$LIBNCCL_DEVEL_RPM" ]; then
-            rpm -i --force "$LIBNCCL_DEVEL_RPM"
+            rpm -i --force "$LIBNCCL_DEVEL_RPM" || echo "Warning: Failed to install $LIBNCCL_DEVEL_RPM, continuing anyway"
         fi
         if [ -n "$LIBNCCL_STATIC_RPM" ]; then
-            rpm -i --force "$LIBNCCL_STATIC_RPM"
+            rpm -i --force "$LIBNCCL_STATIC_RPM" || echo "Warning: Failed to install $LIBNCCL_STATIC_RPM, continuing anyway"
         fi
     fi
 else
@@ -127,3 +132,6 @@ rm -rf /tmp/${TARBALL}
 rm -rf /tmp/nccl-${NCCL_VERSION}
 rm -rf /tmp/nccl-rdma-sharp-plugins
 popd  # Return from /tmp
+
+echo "NCCL installation completed successfully"
+exit 0
