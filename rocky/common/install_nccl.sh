@@ -18,9 +18,35 @@ tar -xvf ${TARBALL}
 pushd nccl-${NCCL_VERSION}
 make -j src.build
 make pkg.redhat.build
-rpm -i ./build/pkg/rpm/x86_64/libnccl-${NCCL_VERSION}+cuda${CUDA_VERSION}.x86_64.rpm
-rpm -i ./build/pkg/rpm/x86_64/libnccl-devel-${NCCL_VERSION}+cuda${CUDA_VERSION}.x86_64.rpm
-rpm -i ./build/pkg/rpm/x86_64/libnccl-static-${NCCL_VERSION}+cuda${CUDA_VERSION}.x86_64.rpm
+
+# Use find command to locate the actual RPM files that were built
+LIBNCCL_RPM=$(find ./build/pkg/rpm/x86_64/ -name "libnccl-${NCCL_VERSION}+cuda*.x86_64.rpm" -type f)
+LIBNCCL_DEVEL_RPM=$(find ./build/pkg/rpm/x86_64/ -name "libnccl-devel-${NCCL_VERSION}+cuda*.x86_64.rpm" -type f)
+LIBNCCL_STATIC_RPM=$(find ./build/pkg/rpm/x86_64/ -name "libnccl-static-${NCCL_VERSION}+cuda*.x86_64.rpm" -type f)
+
+# Install the packages if they exist
+if [ -n "$LIBNCCL_RPM" ]; then
+    echo "Installing $LIBNCCL_RPM"
+    rpm -i "$LIBNCCL_RPM"
+else
+    echo "Warning: Could not find libnccl RPM"
+    # List available RPMs for debugging
+    find ./build/pkg/rpm/x86_64/ -type f
+fi
+
+if [ -n "$LIBNCCL_DEVEL_RPM" ]; then
+    echo "Installing $LIBNCCL_DEVEL_RPM"
+    rpm -i "$LIBNCCL_DEVEL_RPM"
+else
+    echo "Warning: Could not find libnccl-devel RPM"
+fi
+
+if [ -n "$LIBNCCL_STATIC_RPM" ]; then
+    echo "Installing $LIBNCCL_STATIC_RPM"
+    rpm -i "$LIBNCCL_STATIC_RPM"
+else
+    echo "Warning: Could not find libnccl-static RPM"
+fi
 
 # Add libnccl* to the exclude list
 if grep -q "^exclude=" /etc/dnf/dnf.conf; then
