@@ -54,8 +54,26 @@ intel_cleanup() {
   echo "Intel MPI cleanup completed"
 }
 
-# Call the cleanup function before installing Intel MPI
+# Clean up NCCL related files and directories before install
+nccl_cleanup() {
+  echo "Performing NCCL cleanup..."
+  
+  # Clean up NCCL plugins and test directories
+  rm -rf /usr/local/nccl-rdma-sharp-plugins
+  rm -rf nccl-rdma-sharp-plugins
+  rm -rf nccl-tests
+  rm -rf /opt/nccl-tests
+  
+  # Clean up any leftover build directories or files
+  rm -rf /tmp/nccl-*
+  rm -rf /tmp/v*.tar.gz
+  
+  echo "NCCL cleanup completed"
+}
+
+# Call the cleanup functions before installation
 intel_cleanup
+nccl_cleanup
 
 # install pre-requisites
 ./install_prerequisites.sh

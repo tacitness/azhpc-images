@@ -98,8 +98,15 @@ else
 fi
 popd
 
+# Remove existing directory if it exists to avoid git clone errors
+if [ -d "nccl-rdma-sharp-plugins" ]; then
+    echo "Removing existing nccl-rdma-sharp-plugins directory"
+    rm -rf /usr/local/nccl-rdma-sharp-plugins
+fi
+
 # Install the nccl rdma sharp plugin
 mkdir -p /usr/local/nccl-rdma-sharp-plugins
+
 git clone https://github.com/Mellanox/nccl-rdma-sharp-plugins.git
 pushd nccl-rdma-sharp-plugins
 git checkout ${NCCL_RDMA_SHARP_COMMIT}
