@@ -24,28 +24,63 @@ LIBNCCL_RPM=$(find ./build/pkg/rpm/x86_64/ -name "libnccl-${NCCL_VERSION}+cuda*.
 LIBNCCL_DEVEL_RPM=$(find ./build/pkg/rpm/x86_64/ -name "libnccl-devel-${NCCL_VERSION}+cuda*.x86_64.rpm" -type f)
 LIBNCCL_STATIC_RPM=$(find ./build/pkg/rpm/x86_64/ -name "libnccl-static-${NCCL_VERSION}+cuda*.x86_64.rpm" -type f)
 
-# Install the packages if they exist
-if [ -n "$LIBNCCL_RPM" ]; then
-    echo "Installing $LIBNCCL_RPM"
-    rpm -i "$LIBNCCL_RPM"
-else
-    echo "Warning: Could not find libnccl RPM"
-    # List available RPMs for debugging
-    find ./build/pkg/rpm/x86_64/ -type f
-fi
+# Check if NCCL is already installed and get version
+INSTALLED_NCCL_VERSION=$(rpm -q libnccl --queryformat '%{VERSION}' 2>/dev/null)
+INSTALLED_NCCL_CUDA_VERSION=$(rpm -q libnccl --queryformat '%{VERSION}' 2>/dev/null | grep -oP '(?<=cuda)[\d\.]+')
 
-if [ -n "$LIBNCCL_DEVEL_RPM" ]; then
-    echo "Installing $LIBNCCL_DEVEL_RPM"
-    rpm -i "$LIBNCCL_DEVEL_RPM"
-else
-    echo "Warning: Could not find libnccl-devel RPM"
-fi
+echo "Found built NCCL RPMs:"
+echo "  $LIBNCCL_RPM"
+echo "  $LIBNCCL_DEVEL_RPM"
+echo "  $LIBNCCL_STATIC_RPM"
 
-if [ -n "$LIBNCCL_STATIC_RPM" ]; then
-    echo "Installing $LIBNCCL_STATIC_RPM"
-    rpm -i "$LIBNCCL_STATIC_RPM"
+if [ -n "$INSTALLED_NCCL_VERSION" ]; then
+    echo "Detected installed NCCL: $INSTALLED_NCCL_VERSION (CUDA $INSTALLED_NCCL_CUDA_VERSION)"
+    
+    # Extract version of the built package for comparison
+    BUILT_NCCL_VERSION=$(echo "$LIBNCCL_RPM" | grep -oP '(?<=libnccl-)[^+]+')
+    BUILT_NCCL_CUDA_VERSION=$(echo "$LIBNCCL_RPM" | grep -oP '(?<=cuda)[\d\.]+')
+    echo "Built NCCL package: $BUILT_NCCL_VERSION (CUDA $BUILT_NCCL_CUDA_VERSION)"
+    
+    # Skip installation if newer version is already installed
+    if rpm --quiet -q libnccl && [[ "$(rpm -q --queryformat '%{VERSION}' libnccl)" > "$BUILT_NCCL_VERSION" ]]; then
+        echo "A newer version of NCCL is already installed. Skipping installation."
+    else
+        echo "Installing built NCCL packages with --force flag to handle potential conflicts..."
+        if [ -n "$LIBNCCL_RPM" ]; then
+            rpm -i --force "$LIBNCCL_RPM"
+        fi
+        if [ -n "$LIBNCCL_DEVEL_RPM" ]; then
+            rpm -i --force "$LIBNCCL_DEVEL_RPM"
+        fi
+        if [ -n "$LIBNCCL_STATIC_RPM" ]; then
+            rpm -i --force "$LIBNCCL_STATIC_RPM"
+        fi
+    fi
 else
-    echo "Warning: Could not find libnccl-static RPM"
+    # No NCCL installed, proceed with normal installation
+    echo "No existing NCCL installation detected. Installing packages..."
+    if [ -n "$LIBNCCL_RPM" ]; then
+        echo "Installing $LIBNCCL_RPM"
+        rpm -i "$LIBNCCL_RPM"
+    else
+        echo "Warning: Could not find libnccl RPM"
+        # List available RPMs for debugging
+        find ./build/pkg/rpm/x86_64/ -type f
+    fi
+
+    if [ -n "$LIBNCCL_DEVEL_RPM" ]; then
+        echo "Installing $LIBNCCL_DEVEL_RPM"
+        rpm -i "$LIBNCCL_DEVEL_RPM"
+    else
+        echo "Warning: Could not find libnccl-devel RPM"
+    fi
+
+    if [ -n "$LIBNCCL_STATIC_RPM" ]; then
+        echo "Installing $LIBNCCL_STATIC_RPM"
+        rpm -i "$LIBNCCL_STATIC_RPM"
+    else
+        echo "Warning: Could not find libnccl-static RPM"
+    fi
 fi
 
 # Add libnccl* to the exclude list
