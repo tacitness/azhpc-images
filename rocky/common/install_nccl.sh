@@ -125,7 +125,17 @@ else
     mv nccl-tests /opt/.
 fi
 module unload mpi/hpcx
-$COMMON_DIR/write_component_version.sh "NCCL" ${NCCL_VERSION}
+
+# Try different relative paths for write_component_version.sh
+if [ -f "$COMMON_DIR/write_component_version.sh" ]; then
+    $COMMON_DIR/write_component_version.sh "NCCL" ${NCCL_VERSION}
+elif [ -f "$TOP_DIR/common/write_component_version.sh" ]; then
+    $TOP_DIR/common/write_component_version.sh "NCCL" ${NCCL_VERSION}
+elif [ -f "../../common/write_component_version.sh" ]; then
+    ../../common/write_component_version.sh "NCCL" ${NCCL_VERSION}
+else
+    echo "Warning: write_component_version.sh not found, skipping version recording"
+fi
 
 # Remove installation files
 rm -rf /tmp/${TARBALL}
