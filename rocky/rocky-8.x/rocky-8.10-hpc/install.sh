@@ -1,18 +1,41 @@
 #!/bin/bash
 set -ex
 
-# Clean up DNF config at the beginning - simple approach to remove all exclude lines
+# Clean up DNF config at the beginning - thorough approach to fix corrupt configuration
 if [ -f "/etc/dnf/dnf.conf" ]; then
     echo "Cleaning up DNF configuration..."
-    # Backup the original file
-    cp /etc/dnf/dnf.conf /etc/dnf/dnf.conf.bak
-    # Fix any corrupted lines and ensure clean configuration
-    grep -v "^exclude=" /etc/dnf/dnf.conf | grep -v "openmpi perftest" > /etc/dnf/dnf.conf.clean
-    mv /etc/dnf/dnf.conf.clean /etc/dnf/dnf.conf
-    # Ensure skip_if_unavailable is properly set without extra content
-    if grep -q "^skip_if_unavailable=" /etc/dnf/dnf.conf; then
-        sed -i 's/^skip_if_unavailable=.*/skip_if_unavailable=False/' /etc/dnf/dnf.conf
+    
+    # Check if skip_if_unavailable line is corrupted with openmpi perftest
+    if grep -q "skip_if_unavailable=.*openmpi" /etc/dnf/dnf.conf; then
+        echo "Found corrupted skip_if_unavailable line, recreating DNF configuration file..."
+        # Create a completely new dnf.conf with basic settings
+        cat > /etc/dnf/dnf.conf.new << EOF
+[main]
+gpgcheck=1
+installonly_limit=3
+clean_requirements_on_remove=True
+best=True
+skip_if_unavailable=False
+EOF
+        # If there was a valid exclude line, preserve it
+        if grep -q "^exclude=" /etc/dnf/dnf.conf; then
+            grep "^exclude=" /etc/dnf/dnf.conf >> /etc/dnf/dnf.conf.new
+        fi
+        # Backup original file and replace with the new one
+        cp /etc/dnf/dnf.conf /etc/dnf/dnf.conf.corrupted
+        mv /etc/dnf/dnf.conf.new /etc/dnf/dnf.conf
+    else
+        # Backup the original file
+        cp /etc/dnf/dnf.conf /etc/dnf/dnf.conf.bak
+        # Fix any corrupted lines and ensure clean configuration
+        grep -v "^exclude=" /etc/dnf/dnf.conf | grep -v "openmpi perftest" > /etc/dnf/dnf.conf.clean
+        mv /etc/dnf/dnf.conf.clean /etc/dnf/dnf.conf
+        # Ensure skip_if_unavailable is properly set without extra content
+        if grep -q "^skip_if_unavailable=" /etc/dnf/dnf.conf; then
+            sed -i 's/^skip_if_unavailable=.*/skip_if_unavailable=False/' /etc/dnf/dnf.conf
+        fi
     fi
+    
     echo "DNF configuration cleaned"
 fi
 
