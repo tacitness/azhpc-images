@@ -1,6 +1,14 @@
 #!/bin/bash
 set -ex
 
+# Clean up DNF config at the beginning - simple approach to remove all exclude lines
+if [ -f "/etc/dnf/dnf.conf" ]; then
+    echo "Cleaning up DNF configuration excludes..."
+    # Remove all exclude lines - they will be added back by individual scripts
+    sed -i '/^exclude=/d' /etc/dnf/dnf.conf
+    echo "DNF configuration exclude lines removed"
+fi
+
 # install pre-requisites
 ./install_prerequisites.sh
 

@@ -118,7 +118,13 @@ else
 fi
 
 # Add to exclude list from updates regardless
-sed -i "$ s/$/ gdrcopy*/" /etc/dnf/dnf.conf
+if grep -q "^exclude=" /etc/dnf/dnf.conf; then
+    # Append to existing exclude line
+    sed -i "/^exclude=/ s/$/ gdrcopy*/" /etc/dnf/dnf.conf
+else
+    # Create new exclude line
+    echo "exclude=gdrcopy*" >> /etc/dnf/dnf.conf
+fi
 popd
 
 $COMMON_DIR/write_component_version.sh "GDRCOPY" ${GDRCOPY_VERSION}
@@ -133,7 +139,16 @@ NVIDIA_FABRICMANAGER_SHA256=$(jq -r '.sha256' <<< $nvidia_fabricmanager_metadata
 NVIDIA_FABRIC_MNGR_URL=http://developer.download.nvidia.com/compute/cuda/repos/${NVIDIA_FABRICMANAGER_DISTRIBUTION}/x86_64/nvidia-fabric-manager-${NVIDIA_FABRICMANAGER_VERSION}.x86_64.rpm
 $COMMON_DIR/download_and_verify.sh ${NVIDIA_FABRIC_MNGR_URL} ${NVIDIA_FABRICMANAGER_SHA256}
 yum install -y ./nvidia-fabric-manager-${NVIDIA_FABRICMANAGER_VERSION}.x86_64.rpm
-sed -i "$ s/$/ nvidia-fabric-manager/" /etc/dnf/dnf.conf
+
+# Add nvidia-fabric-manager to the exclude list
+if grep -q "^exclude=" /etc/dnf/dnf.conf; then
+    # Append to existing exclude line
+    sed -i "/^exclude=/ s/$/ nvidia-fabric-manager/" /etc/dnf/dnf.conf
+else
+    # Create new exclude line
+    echo "exclude=nvidia-fabric-manager" >> /etc/dnf/dnf.conf
+fi
+
 $COMMON_DIR/write_component_version.sh "NVIDIA_FABRIC_MANAGER" ${NVIDIA_FABRICMANAGER_VERSION}
 
 # cleanup downloaded files but preserve repo files

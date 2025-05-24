@@ -126,7 +126,13 @@ cd ..
 $COMMON_DIR/write_component_version.sh "OMPI" ${OMPI_VERSION}
 
 # exclude openmpi, perftest from updates
-sed -i "$ s/$/ openmpi perftest/" /etc/dnf/dnf.conf
+if grep -q "^exclude=" /etc/dnf/dnf.conf; then
+    # Append to existing exclude line
+    sed -i "/^exclude=/ s/$/ openmpi perftest/" /etc/dnf/dnf.conf
+else
+    # Create new exclude line
+    echo "exclude=openmpi perftest" >> /etc/dnf/dnf.conf
+fi
 
 # Install Intel MPI
 impi_metadata=$(jq -r '.impi."'"$DISTRIBUTION"'"' <<< $COMPONENT_VERSIONS)

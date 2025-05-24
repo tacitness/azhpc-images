@@ -21,7 +21,13 @@ yum install -y nvidia-container-toolkit
 # Install NVIDIA container runtime and mark NVIDIA packages on hold
 yum install -y nvidia-container-runtime
 # Mark the installed packages on hold to disable updates
-sed -i "$ s/$/ *nvidia-container*/" /etc/dnf/dnf.conf
+if grep -q "^exclude=" /etc/dnf/dnf.conf; then
+    # Append to existing exclude line
+    sed -i "/^exclude=/ s/$/ *nvidia-container*/" /etc/dnf/dnf.conf
+else
+    # Create new exclude line
+    echo "exclude=*nvidia-container*" >> /etc/dnf/dnf.conf
+fi
 
 nvidia-ctk runtime configure --runtime=docker
 

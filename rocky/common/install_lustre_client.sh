@@ -15,7 +15,14 @@ curl https://fsx-lustre-client-repo.s3.amazonaws.com/el/8/fsx-lustre-client.repo
 
 # If using rpm path uncomment
 dnf install -y --disableexcludes=main --refresh kmod-lustre-client lustre-client
-sed -i "$ s/$/ amlfs*/" /etc/dnf/dnf.conf
-sed -i "$ s/$/ kmod*/" /etc/dnf/dnf.conf
+
+# Add packages to exclude list by appending to the exclude line if it exists
+if grep -q "^exclude=" /etc/dnf/dnf.conf; then
+    # Append to existing exclude line
+    sed -i "/^exclude=/ s/$/ amlfs* kmod*/" /etc/dnf/dnf.conf
+else
+    # Create new exclude line
+    echo "exclude=amlfs* kmod*" >> /etc/dnf/dnf.conf
+fi
 
 $COMMON_DIR/write_component_version.sh "LUSTRE" ${LUSTRE_VERSION}
