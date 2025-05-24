@@ -136,6 +136,7 @@ yum install -y ./nvidia-fabric-manager-${NVIDIA_FABRICMANAGER_VERSION}.x86_64.rp
 sed -i "$ s/$/ nvidia-fabric-manager/" /etc/dnf/dnf.conf
 $COMMON_DIR/write_component_version.sh "NVIDIA_FABRIC_MANAGER" ${NVIDIA_FABRICMANAGER_VERSION}
 
-# cleanup downloaded files
+# cleanup downloaded files but preserve repo files
 rm -rf *.run *tar.gz *.rpm
-rm -rf -- */
+# Avoid removing .repo files
+rm -rf -- $(find . -mindepth 1 -maxdepth 1 -type d | grep -v '\.repo$')

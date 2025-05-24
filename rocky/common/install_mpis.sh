@@ -9,6 +9,8 @@ intel_cleanup() {
   rm -rf /opt/intel
   rm -rf /opt/intel_licenses
   rm -rf /var/intel 
+  rm -rf /tmp/root/intel*
+
   # Remove package manager references
   if command -v rpm &> /dev/null; then
     rpm -qa | grep -i intel | xargs -r rpm -e --nodeps
@@ -17,11 +19,13 @@ intel_cleanup() {
   # Clean up potential hidden directories
   rm -rf ~/.intel
   rm -rf ~/.pki/nssdb/*intel*
-  
+  rm -rf hpcx-v2.19-gcc-mlnx_ofed-redhat8-cuda12-x86_64* MLNX_OFED_LINUX-24.10-1.1.4.0-rhel8.10-x86_64* mvapich2* openmpi* ucx* 
+
   # Clean installer caches
   rm -rf /tmp/intel*
   rm -rf /tmp/*offline*
-  
+  rm -rf /tmp/tmpjsonlogdir.HiIHTH/intel-sw-install-history.json.log 
+
   # Remove modulefiles
   rm -rf /usr/share/Modules/modulefiles/mpi/impi*
   
@@ -251,4 +255,5 @@ echo "DEBUGGING FOR HCOLL"
 env
 # cleanup downloaded tarballs and other installation files/folders
 rm -rf *.tar.gz *offline.sh
-rm -rf -- */
+# Avoid removing .repo files
+rm -rf -- $(find . -mindepth 1 -maxdepth 1 -type d | grep -v '\.repo$')
