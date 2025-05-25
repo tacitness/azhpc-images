@@ -17,13 +17,36 @@ mkdir -p $MONITOR_DIR
 
 pushd $MONITOR_DIR
 
-    git clone https://github.com/Azure/Moneo  --branch v$MONEO_VERSION
+    # Check if Moneo directory already exists
+    if [ -d "Moneo" ]; then
+        echo "Moneo directory already exists, updating instead of cloning"
+        pushd Moneo
+            # Fetch the latest changes without modifying local changes
+            git fetch origin
+            # Check if we're on the expected branch
+            CURRENT_BRANCH=$(git symbolic-ref --short HEAD 2>/dev/null || echo "detached")
+            EXPECTED_BRANCH="v$MONEO_VERSION"
+            if [ "$CURRENT_BRANCH" != "$EXPECTED_BRANCH" ]; then
+                echo "Switching to branch $EXPECTED_BRANCH"
+                git checkout $EXPECTED_BRANCH || git checkout -b $EXPECTED_BRANCH origin/$EXPECTED_BRANCH
+            fi
+        popd
+    else
+        echo "Cloning Moneo repository"
+        git clone https://github.com/Azure/Moneo --branch v$MONEO_VERSION
+    fi
 
     chmod 777 Moneo
 
-    pushd Moneo/linux_service
-        ./configure_service.sh   
-    popd
+    # Check if service is already configured
+    if [ -f "/etc/systemd/system/moneo.service" ]; then
+        echo "Moneo service already configured, skipping configuration"
+    else
+        echo "Configuring Moneo service"
+        pushd Moneo/linux_service
+            ./configure_service.sh
+        popd
+    fi
 popd
 
 # add an alias for Moneo
