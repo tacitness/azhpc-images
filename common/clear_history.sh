@@ -3,7 +3,13 @@ set -ex
 
 # Find distro
 find_distro() {
-    local os=`cat /etc/os-release | awk 'match($0, /^NAME="(.*)"/, result) { print result[1] }'`
+    local os_file="/etc/os-release"
+    # Fallback to /os-release if /etc/os-release doesn't exist (for compatibility)
+    if [ ! -f "$os_file" ] && [ -f "/os-release" ]; then
+        os_file="/os-release"
+    fi
+    
+    local os=`cat $os_file | awk 'match($0, /^NAME="(.*)"/, result) { print result[1] }'`
     if [[ $os == "AlmaLinux" ]]
     then
         local alma_distro=`find_alma_distro`
@@ -12,6 +18,10 @@ find_distro() {
     then
         local ubuntu_distro=`find_ubuntu_distro`
         echo "${os} ${ubuntu_distro}"
+    elif [[ $os == "Rocky Linux" ]]
+    then
+        local rocky_distro=`find_rocky_distro`
+        echo "${os} ${rocky_distro}"
     else
         echo "*** Error - invalid distro!"
         exit -1
@@ -28,10 +38,15 @@ find_ubuntu_distro() {
     echo `cat /etc/os-release | awk 'match($0, /^PRETTY_NAME="(.*)"/, result) { print result[1] }' | awk '{print $2}' | cut -d. -f1,2`
 }
 
+# Find Rocky distro
+find_rocky_distro() {
+    echo `cat /etc/redhat-release | awk '{print $4}'`
+}
+
 distro=`find_distro`
 echo "Detected distro: ${distro}"
 
-if [[ $distro == *"AlmaLinux"* ]]
+if [[ $distro == *"AlmaLinux"* ]] || [[ $distro == *"Rocky Linux"* ]]
 then
     # Sync yum and rpmdb after installing rpm's outside yum
     yum history sync
@@ -80,6 +95,7 @@ if [[ $distro == *"Ubuntu"* ]]
 then
     apt-get clean
 else
+    # AlmaLinux or Rocky Linux
     yum clean all
 fi
 
