@@ -9,8 +9,14 @@ cp $COMMON_DIR/../customizations/* /opt/azurehpc/customizations
 mkdir -p /opt/microsoft
 cp $COMMON_DIR/../topology/* /opt/microsoft
 
+# Skip processing for non-GPU VMs
+if [ -z "$GPU" ]; then
+    echo "No GPU specified, only copying files without creating services"
+    exit 0
+fi
+
 if [ "$GPU" = "NVIDIA" ]; then
-## Systemd service for setting up appropriate customizations based on SKU
+    ## Systemd service for setting up appropriate customizations based on SKU
 cat <<EOF >/usr/sbin/setup_sku_customizations.sh
 #!/bin/bash
 
@@ -85,7 +91,7 @@ cat /dev/null > /etc/nccl.conf
 EOF
 
 elif [ "$GPU" = "AMD" ]; then
-## Systemd service for setting up appropriate customizations based on SKU
+    ## Systemd service for setting up appropriate customizations based on SKU
 cat <<EOF >/usr/sbin/setup_sku_customizations.sh
 #!/bin/bash
 
@@ -123,8 +129,8 @@ cat /dev/null > /etc/nccl.conf
 EOF
 
 else
-echo "GPU is not NVIDIA or AMD, exiting"
-exit 1
+    echo "GPU is not NVIDIA or AMD, exiting"
+    exit 1
 fi
 chmod 755 /usr/sbin/remove_sku_customizations.sh
 
