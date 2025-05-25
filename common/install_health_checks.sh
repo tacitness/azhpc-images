@@ -22,7 +22,6 @@ fi
 
 if [ "${GPU_PLAT}" = "NVIDIA" ]; then
    echo "Cloning Azure HPC Health Checks repository (NVIDIA GPU platform) version ${AZHC_VERSION}..."
-   echo "Cloning Azure HPC Health Checks repository (NVIDIA GPU platform) version ${AZHC_VERSION}..."
    git clone https://github.com/Azure/azurehpc-health-checks.git --branch v$AZHC_VERSION
 
    pushd azurehpc-health-checks
@@ -33,8 +32,34 @@ else
    echo "Cloning Azure HPC Health Checks repository (non-NVIDIA platform)..."
    git clone https://github.com/Azure/azurehpc-health-checks.git
    pushd azurehpc-health-checks
-   echo "Building health checks Docker image for AMD..."
-   ./dockerfile/build_image.sh rocm
+   
+   # Fix for AMD/ROCM builds - skip Docker image build if HPC-X is not found
+   echo "Checking for HPC-X installation for AMD build..."
+   HPCX_POSSIBLE_DIRS=( 
+     "/opt/hpcx-v2.18-gcc-mlnx_ofed-redhat8-x86_64" 
+     "/opt/hpcx-v2.18-gcc-mlnx_ofed-ubuntu22.04-x86_64"
+     "/opt/hpcx-v2.19-gcc-mlnx_ofed-redhat8-x86_64"
+     "/opt/hpcx-v2.19-gcc-mlnx_ofed-redhat8-cuda12-x86_64"
+     "/opt/hpcx-v"*"-gcc-mlnx_ofed-"*"-x86_64"
+   )
+   
+   HPCX_FOUND=false
+   for dir in "${HPCX_POSSIBLE_DIRS[@]}"; do
+     if [ -d "$dir" ]; then
+       echo "Found HPC-X installation at $dir"
+       export HPCX_MPI_DIR="$dir"
+       HPCX_FOUND=true
+       break
+     fi
+   done
+   
+   if [ "$HPCX_FOUND" = true ]; then
+     echo "Building health checks Docker image for AMD..."
+     ./dockerfile/build_image.sh rocm
+   else
+     echo "Warning: HPC-X installation not found, skipping Docker image build."
+     echo "Manual build will be required later using: cd ${DEST_TEST_DIR}/azurehpc-health-checks && ./dockerfile/build_image.sh rocm"
+   fi
    popd
 fi
 
@@ -44,7 +69,11 @@ echo "Recording health checks version information..."
 $COMMON_DIR/write_component_version.sh "AZ_HEALTH_CHECKS" ${AZHC_VERSION}
 
 echo "==============================================="
-echo "Azure HPC Health Checks installation completed successfully!"
+echo "Azure HPC Health Checks installation completed!"
 echo "Version: ${AZHC_VERSION}"
 echo "Location: ${DEST_TEST_DIR}/azurehpc-health-checks"
+if [ "${GPU_PLAT}" != "NVIDIA" ] && [ "$HPCX_FOUND" = false ]; then
+  echo "NOTE: Docker image for AMD was not built due to missing HPC-X."
+  echo "To build manually later: cd ${DEST_TEST_DIR}/azurehpc-health-checks && ./dockerfile/build_image.sh rocm"
+fi
 echo "==============================================="
