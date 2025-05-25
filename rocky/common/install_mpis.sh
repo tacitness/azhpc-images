@@ -19,7 +19,7 @@ intel_cleanup() {
   # Clean up potential hidden directories
   rm -rf ~/.intel
   rm -rf ~/.pki/nssdb/*intel*
-  rm -rf hpcx-v2.19-gcc-mlnx_ofed-redhat8-cuda12-x86_64* MLNX_OFED_LINUX-24.10-1.1.4.0-rhel8.10-x86_64* mvapich2* openmpi* ucx* 
+  rm -rf hpcx-v2.18-gcc-mlnx_ofed-redhat8-cuda12-x86_64* MLNX_OFED_LINUX-24.10-1.1.4.0-rhel8.10-x86_64* mvapich2* openmpi* ucx* 
 
   # Clean installer caches
   rm -rf /tmp/intel*
@@ -53,8 +53,8 @@ HPCX_PATH=$1
 echo "DEBUG HCOLL: ENTERED second install_mpis.sh; ${HPCX_PATH}"
 
 # Ensure PKG_CONFIG_PATH includes the hcoll pkgconfig directory
-if ! echo "$PKG_CONFIG_PATH" | grep -q "/opt/hpcx-v2.19-gcc-mlnx_ofed-redhat8-cuda12-x86_64/hcoll/lib/pkgconfig"; then
-    export PKG_CONFIG_PATH="/opt/hpcx-v2.19-gcc-mlnx_ofed-redhat8-cuda12-x86_64/hcoll/lib/pkgconfig:$PKG_CONFIG_PATH"
+if ! echo "$PKG_CONFIG_PATH" | grep -q "/opt/hpcx-v2.18-gcc-mlnx_ofed-redhat8-cuda12-x86_64/hcoll/lib/pkgconfig"; then
+    export PKG_CONFIG_PATH="/opt/hpcx-v2.18-gcc-mlnx_ofed-redhat8-cuda12-x86_64/hcoll/lib/pkgconfig:$PKG_CONFIG_PATH"
 fi
 
 # Test if the 'sharp_coll' flag is present in the pkg-config output for hcoll

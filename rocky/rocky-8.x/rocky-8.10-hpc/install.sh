@@ -57,7 +57,7 @@ intel_cleanup() {
   # Clean up potential hidden directories
   rm -rf ~/.intel
   rm -rf ~/.pki/nssdb/*intel*
-  rm -rf hpcx-v2.19-gcc-mlnx_ofed-redhat8-cuda12-x86_64* MLNX_OFED_LINUX-24.10-1.1.4.0-rhel8.10-x86_64* mvapich2* openmpi* ucx* 
+  rm -rf hpcx-v2.18-gcc-mlnx_ofed-redhat8-cuda12-x86_64* MLNX_OFED_LINUX-24.10-1.1.4.0-rhel8.10-x86_64* mvapich2* openmpi* ucx* 
 
   # Clean installer caches
   rm -rf /tmp/intel*

@@ -39,7 +39,7 @@ else
      "/opt/hpcx-v2.18-gcc-mlnx_ofed-redhat8-x86_64" 
      "/opt/hpcx-v2.18-gcc-mlnx_ofed-ubuntu22.04-x86_64"
      "/opt/hpcx-v2.19-gcc-mlnx_ofed-redhat8-x86_64"
-     "/opt/hpcx-v2.19-gcc-mlnx_ofed-redhat8-cuda12-x86_64"
+     "/opt/hpcx-v2.18-gcc-mlnx_ofed-redhat8-cuda12-x86_64"
      "/opt/hpcx-v"*"-gcc-mlnx_ofed-"*"-x86_64"
    )
    
@@ -55,7 +55,23 @@ else
    
    if [ "$HPCX_FOUND" = true ]; then
      echo "Building health checks Docker image for AMD..."
-     ./dockerfile/build_image.sh rocm
+     # Keep the detected HPCX_MPI_DIR from the loop above
+     echo "Using HPCX_MPI_DIR=$HPCX_MPI_DIR"
+     
+     # Create root-level symlink for Docker build compatibility
+     echo "Creating root-level symlink for Docker build..."
+     ln -sf "$HPCX_MPI_DIR" "/hpcx-v2.18-gcc-mlnx_ofed-ubuntu22.04-cuda12-x86_64"
+     
+     # Run the build script with explicit environment variable
+     echo "Running build script with HPCX_MPI_DIR set..."
+     ./dockerfile/build_image.sh rocm || {
+       echo "Warning: Docker build failed, but continuing installation"
+       # Clean up symlink if build fails
+       rm -f "/hpcx-v2.18-gcc-mlnx_ofed-ubuntu22.04-cuda12-x86_64"
+     }
+     
+     # Clean up root-level symlink after build
+     rm -f "/hpcx-v2.18-gcc-mlnx_ofed-ubuntu22.04-cuda12-x86_64"
    else
      echo "Warning: HPC-X installation not found, skipping Docker image build."
      echo "Manual build will be required later using: cd ${DEST_TEST_DIR}/azurehpc-health-checks && ./dockerfile/build_image.sh rocm"
