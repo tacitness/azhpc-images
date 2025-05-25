@@ -28,7 +28,7 @@ if [ "${GPU_PLAT}" = "NVIDIA" ]; then
    echo "Pulling health checks Docker container from MCR..."
    ./dockerfile/pull-image-acr.sh cuda
    popd
-else
+elif [ "${GPU_PLAT}" = "AMD" ]; then
    echo "Cloning Azure HPC Health Checks repository (non-NVIDIA platform)..."
    git clone https://github.com/Azure/azurehpc-health-checks.git
    pushd azurehpc-health-checks
@@ -76,6 +76,12 @@ else
      echo "Warning: HPC-X installation not found, skipping Docker image build."
      echo "Manual build will be required later using: cd ${DEST_TEST_DIR}/azurehpc-health-checks && ./dockerfile/build_image.sh rocm"
    fi
+   popd
+else
+   echo "Cloning Azure HPC Health Checks repository (no GPU platform)..."
+   git clone https://github.com/Azure/azurehpc-health-checks.git
+   pushd azurehpc-health-checks
+   echo "Skipping Docker image build as no GPU platform was specified"
    popd
 fi
 
