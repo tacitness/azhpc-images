@@ -39,22 +39,18 @@ function run_test_with_error_handling {
     if ! $test_function; then
         echo "$test_name verification failed"
         ERROR_COUNT=$((ERROR_COUNT+1))
-        record_test_result "$test_name" 1
         return 1
     fi
-    record_test_result "$test_name" 0
     return 0
 }
 
-# Handle module dependency and record skip status
+# Handle module dependency
 function handle_module_dependency {
     local module_name="$1"
     local test_name="$2"
     
     if ! module avail $module_name &>/dev/null; then
         echo "Required module $module_name for $test_name not found."
-        TEST_NAMES+=("$test_name")
-        TEST_RESULTS["$test_name"]="SKIP"
         return 1
     fi
     return 0
