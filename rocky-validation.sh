@@ -190,14 +190,26 @@ function verify_hpcx_installation_root {
     echo "Using UCX transport: $UCX_TRANSPORT"
     
     module load mpi/hpcx
-    mpirun --allow-run-as-root -np 2 --map-by ppr:2:node -x UCX_TLS=$UCX_TRANSPORT ${HPCX_OSU_DIR}/osu_latency
+    # Only use HCOLL if we have InfiniBand hardware
+    if [ "$HAS_INFINIBAND" -eq 1 ]; then
+        mpirun --allow-run-as-root -np 2 --map-by ppr:2:node -x UCX_TLS=$UCX_TRANSPORT ${HPCX_OSU_DIR}/osu_latency
+    else
+        # Disable HCOLL when running without InfiniBand hardware
+        mpirun --allow-run-as-root -np 2 --map-by ppr:2:node -mca coll_hcoll_enable 0 -x UCX_TLS=$UCX_TRANSPORT ${HPCX_OSU_DIR}/osu_latency
+    fi
     check_exit_code "HPC-X" "Failed to run HPC-X"
     module unload mpi/hpcx
 
     check_exists "${MODULE_FILES_ROOT}/mpi/hpcx-pmix"
 
     module load mpi/hpcx-pmix
-    mpirun --allow-run-as-root -np 2 --map-by ppr:2:node -x UCX_TLS=$UCX_TRANSPORT ${HPCX_OSU_DIR}/osu_latency
+    # Only use HCOLL if we have InfiniBand hardware
+    if [ "$HAS_INFINIBAND" -eq 1 ]; then
+        mpirun --allow-run-as-root -np 2 --map-by ppr:2:node -x UCX_TLS=$UCX_TRANSPORT ${HPCX_OSU_DIR}/osu_latency
+    else
+        # Disable HCOLL when running without InfiniBand hardware
+        mpirun --allow-run-as-root -np 2 --map-by ppr:2:node -mca coll_hcoll_enable 0 -x UCX_TLS=$UCX_TRANSPORT ${HPCX_OSU_DIR}/osu_latency
+    fi
     check_exit_code "HPC-X with PMIx" "Failed to run HPC-X with PMIx"
     module unload mpi/hpcx-pmix
     module purge
@@ -365,8 +377,17 @@ verify_docker_installation || echo "Docker verification failed"
 # Compiler validation
 echo -e "\n--- Compiler Validation ---"
 verify_gcc_modulefile || echo "GCC verification failed"
-verify_aocl_installation || echo "AOCL verification failed"
-verify_aocc_installation || echo "AOCC verification failed"
+
+# Check if AMD hardware is present
+if ! lspci | grep -i amd > /dev/null; then
+    echo "No AMD hardware detected - skipping AMD-specific validation tests"
+    # Mark these as skipped rather than failed
+    SKIPPED_COMPONENTS+=("AOCL")
+    SKIPPED_COMPONENTS+=("AOCC")
+else
+    verify_aocl_installation || echo "AOCL verification failed"
+    verify_aocc_installation || echo "AOCC verification failed"
+fi
 
 # DCGM validation
 echo -e "\n--- DCGM Validation ---"
@@ -380,9 +401,29 @@ verify_sunrpc_tcp_settings_service || echo "SunRPC TCP settings verification fai
 
 # Network validation
 echo -e "\n--- Network Validation ---"
-verify_ofed_installation || echo "OFED installation verification failed"
-verify_ib_device_status || echo "IB device status verification failed"
-verify_ipoib_status || echo "IPoIB status verification failed"
+if [ "$HAS_INFINIBAND" -eq 0 ]; then
+    echo "No InfiniBand hardware detected - skipping InfiniBand-related validation tests"
+    # Mark these as skipped rather than failed
+    SKIPPED_COMPONENTS+=("InfiniBand")
+    SKIPPED_COMPONENTS+=("OFED")
+    SKIPPED_COMPONENTS+=("IPoIB")
+else
+    verify_ofed_installation || echo "OFED installation verification failed"
+    verify_ib_device_status || echo "IB device status verification failed"
+    verify_ipoib_status || echo "IPoIB status verification failed"
+fi
+
+# Function to record test results
+function record_test_result {
+    local component_name="$1"
+    local result="$2"
+    
+    if [ "$result" -eq 0 ]; then
+        PASSED_COMPONENTS+=("$component_name")
+    else
+        FAILED_COMPONENTS+=("$component_name")
+    fi
+}
 
 # Additional checks for Rocky Linux
 echo -e "\n--- Rocky Linux-specific Validation ---"
@@ -425,18 +466,6 @@ if [ "$ID" == "rocky" ]; then
     
     record_test_result "Rocky Linux Specific" $rocky_specific_result
 fi
-
-# Function to record test results
-function record_test_result {
-    local component_name="$1"
-    local result="$2"
-    
-    if [ "$result" -eq 0 ]; then
-        PASSED_COMPONENTS+=("$component_name")
-    else
-        FAILED_COMPONENTS+=("$component_name")
-    fi
-}
 
 # Create a summary of validation results
 echo -e "\n=== Validation Summary ==="
