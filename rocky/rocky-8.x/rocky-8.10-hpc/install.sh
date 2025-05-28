@@ -101,9 +101,11 @@ nccl_cleanup() {
   echo "NCCL cleanup completed"
 }
 
-# Call the cleanup functions before installation
-intel_cleanup
-nccl_cleanup
+# Clear non-redistributable GPU software - ONLY for public distribution
+# When SKIP_NVIDIA_COMPONENTS=1:
+#   - INSTALLED: NVIDIA Datacenter Driver (redistributable)
+#   - SKIPPED: CUDA Toolkit, NVIDIA DCGM, NVIDIA Fabric Manager, GDRCopy, GPUDirect RDMA
+SKIP_NVIDIA_COMPONENTS=1
 
 # install pre-requisites
 ./install_prerequisites.sh
@@ -132,8 +134,15 @@ env | colrm 180
 pwd
 ./install_mpis.sh
 
-# install nvidia gpu driver
-./install_nvidiagpudriver.sh
+# Install NVIDIA components
+if [ "$SKIP_NVIDIA_COMPONENTS" = "1" ]; then
+    echo "Installing only redistributable NVIDIA driver"
+    # Install only the NVIDIA driver (redistributable)
+    ./install_nvidia_driver_only.sh
+else
+    # Install all NVIDIA components including non-redistributable ones
+    ./install_nvidiagpudriver.sh
+fi
 
 # install AMD tuned libraries
 ./install_amd_libs.sh
@@ -147,14 +156,25 @@ rm -rf /tmp/MLNX_OFED_LINUX* /tmp/*conf*
 rm -rf /var/intel/ /var/cache/*
 #rm -Rf -- */
 
-# Install NCCL
-./install_nccl.sh
+# Install NCCL (redistributable)
+if [ "$SKIP_NVIDIA_COMPONENTS" = "1" ]; then
+    echo "Installing redistributable version of NCCL"
+    ./install_nccl_redist.sh
+else
+    echo "Installing full NCCL with CUDA dependencies"
+    ./install_nccl.sh
+fi
 
-# Install NVIDIA docker container
-$COMMON_DIR/../rocky/rocky-8.x/common/install_docker.sh
+# NVIDIA container components (non-redistributable)
+if [ "$SKIP_NVIDIA_COMPONENTS" != "1" ]; then
+    # Install NVIDIA docker container
+    $COMMON_DIR/../rocky/rocky-8.x/common/install_docker.sh
 
-# Install DCGM
-./install_dcgm.sh
+    # Install DCGM
+    ./install_dcgm.sh
+else
+    echo "Skipping non-redistributable NVIDIA components (Docker container toolkit, DCGM)"
+fi
 
 # optimizations
 ./hpc-tuning.sh
