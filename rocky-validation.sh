@@ -14,6 +14,23 @@ fi
 # Initialize error counter
 ERROR_COUNT=0
 
+# Arrays to track test results
+declare -A TEST_RESULTS
+declare -a TEST_NAMES
+
+# Function to record test result
+record_test_result() {
+    local test_name="$1"
+    local result="$2"  # 0 for success, non-zero for failure
+    
+    TEST_NAMES+=("$test_name")
+    if [ "$result" -eq 0 ]; then
+        TEST_RESULTS["$test_name"]="PASS"
+    else
+        TEST_RESULTS["$test_name"]="FAIL"
+    fi
+}
+
 # Determine if we're running on actual HPC hardware
 HAS_INFINIBAND=0
 if lspci | grep -i infiniband >/dev/null; then
@@ -170,6 +187,9 @@ echo "=== Running validation tests ==="
 # Basic system validation
 echo -e "\n--- Basic System Validation ---"
 verify_basic_system_info
+result=$?
+record_test_result "Basic System" $result
+[ $result -ne 0 ] && echo "Basic system verification failed"
 
 # MPI validation
 echo -e "\n--- MPI Validation ---"
@@ -202,7 +222,10 @@ function verify_hpcx_installation_root {
     module unload mpi/hpcx-pmix
     module purge
 }
-verify_hpcx_installation_root || echo "HPCX verification failed"
+verify_hpcx_installation_root
+result=$?
+record_test_result "HPC-X" $result
+[ $result -ne 0 ] && echo "HPCX verification failed"
 
 echo "Checking MVAPICH2..."
 function verify_mvapich2_installation_root {
@@ -298,7 +321,10 @@ run_test_with_error_handling "Open MPI" verify_ompi_installation_root
 
 # CUDA validation
 echo -e "\n--- CUDA Validation ---"
-verify_cuda_installation || echo "CUDA verification failed"
+verify_cuda_installation 
+result=$?
+record_test_result "CUDA" $result
+[ $result -ne 0 ] && echo "CUDA verification failed"
 
 # NCCL validation
 echo -e "\n--- NCCL Validation ---"
@@ -346,59 +372,150 @@ function verify_nccl_installation_root {
     module unload mpi/hpcx
 }
 
-verify_nccl_installation_root || echo "NCCL verification failed"
+verify_nccl_installation_root
+result=$?
+record_test_result "NCCL" $result
+[ $result -ne 0 ] && echo "NCCL verification failed"
 
 # GDRCopy validation
 echo -e "\n--- GDRCopy Validation ---"
-verify_gdrcopy_installation || echo "GDRCopy verification failed"
+verify_gdrcopy_installation
+result=$?
+record_test_result "GDRCopy" $result
+[ $result -ne 0 ] && echo "GDRCopy verification failed"
 
 # Docker validation
 echo -e "\n--- Docker Validation ---"
-verify_docker_installation || echo "Docker verification failed"
+verify_docker_installation
+result=$?
+record_test_result "Docker" $result
+[ $result -ne 0 ] && echo "Docker verification failed"
 
 # Compiler validation
 echo -e "\n--- Compiler Validation ---"
-verify_gcc_modulefile || echo "GCC verification failed"
-verify_aocl_installation || echo "AOCL verification failed"
-verify_aocc_installation || echo "AOCC verification failed"
+verify_gcc_modulefile
+result=$?
+record_test_result "GCC" $result
+[ $result -ne 0 ] && echo "GCC verification failed"
+
+verify_aocl_installation
+result=$?
+record_test_result "AOCL" $result
+[ $result -ne 0 ] && echo "AOCL verification failed"
+
+verify_aocc_installation
+result=$?
+record_test_result "AOCC" $result
+[ $result -ne 0 ] && echo "AOCC verification failed"
 
 # DCGM validation
 echo -e "\n--- DCGM Validation ---"
-verify_dcgm_installation || echo "DCGM verification failed"
+verify_dcgm_installation
+result=$?
+record_test_result "DCGM" $result
+[ $result -ne 0 ] && echo "DCGM verification failed"
 
 # Services validation
 echo -e "\n--- Services Validation ---"
-verify_sku_customization_service || echo "SKU customization service verification failed"
-verify_nvidia_fabricmanager_service || echo "NVIDIA Fabric Manager service verification failed"
-verify_sunrpc_tcp_settings_service || echo "SunRPC TCP settings verification failed"
+verify_sku_customization_service
+result=$?
+record_test_result "SKU Customization Service" $result
+[ $result -ne 0 ] && echo "SKU customization service verification failed"
+
+verify_nvidia_fabricmanager_service
+result=$?
+record_test_result "NVIDIA Fabric Manager" $result
+[ $result -ne 0 ] && echo "NVIDIA Fabric Manager service verification failed"
+
+verify_sunrpc_tcp_settings_service
+result=$?
+record_test_result "SunRPC TCP Settings" $result
+[ $result -ne 0 ] && echo "SunRPC TCP settings verification failed"
 
 # Network validation
 echo -e "\n--- Network Validation ---"
-verify_ofed_installation || echo "OFED installation verification failed"
-verify_ib_device_status || echo "IB device status verification failed"
-verify_ipoib_status || echo "IPoIB status verification failed"
+verify_ofed_installation
+result=$?
+record_test_result "OFED" $result
+[ $result -ne 0 ] && echo "OFED installation verification failed"
+
+verify_ib_device_status
+result=$?
+record_test_result "IB Device Status" $result
+[ $result -ne 0 ] && echo "IB device status verification failed"
+
+verify_ipoib_status
+result=$?
+record_test_result "IPoIB Status" $result
+[ $result -ne 0 ] && echo "IPoIB status verification failed"
 
 # Additional checks for Rocky Linux
 echo -e "\n--- Rocky Linux-specific Validation ---"
 if [ "$ID" == "rocky" ]; then
+    rocky_specific_result=0
+    
     # Check for DNF and YUM
     echo "Checking package managers:"
-    which dnf && dnf --version | head -1 || echo "DNF not found"
-    which yum && yum --version | head -1 || echo "YUM not found"
+    if which dnf && dnf --version | head -1; then
+        echo "DNF found [OK]"
+    else
+        echo "DNF not found"
+        rocky_specific_result=1
+    fi
+    
+    if which yum && yum --version | head -1; then
+        echo "YUM found [OK]"
+    else
+        echo "YUM not found"
+        rocky_specific_result=1
+    fi
     
     # Check for common Rocky Linux services
     echo "Checking Rocky Linux services:"
-    systemctl status chronyd || echo "chronyd not active"
+    if systemctl status chronyd; then
+        echo "chronyd active [OK]"
+    else
+        echo "chronyd not active"
+        rocky_specific_result=1
+    fi
     
     # Check for SELinux packages
     echo "Checking SELinux packages:"
-    rpm -qa | grep -E "selinux" || echo "No SELinux packages found"
+    if rpm -qa | grep -E "selinux"; then
+        echo "SELinux packages found [OK]"
+    else
+        echo "No SELinux packages found"
+        rocky_specific_result=1
+    fi
+    
+    record_test_result "Rocky Linux Specific" $rocky_specific_result
 fi
 
 # Create a summary of validation results
 echo -e "\n=== Validation Summary ==="
+
+# Print a formatted summary table with Unicode symbols
+echo "┌───────────────────────────────────────────────────────────────────────┐"
+echo "│ Test Results Summary                                                  │"
+echo "├───────────────────────────────────────────────────────────────────────┤"
+echo "│ ✓ = Pass | ✗ = Fail | ⚠ = Skipped                                     │"
+echo "├───────────────────────────────────────────────────────────────────────┤"
+
+for test_name in "${TEST_NAMES[@]}"; do
+    result="${TEST_RESULTS[$test_name]}"
+    if [ "$result" == "PASS" ]; then
+        printf "│ \033[32m✓\033[0m %-69s │\n" "$test_name"
+    elif [ "$result" == "SKIP" ]; then
+        printf "│ \033[33m⚠\033[0m %-69s │\n" "$test_name"
+    else
+        printf "│ \033[31m✗\033[0m %-69s │\n" "$test_name"
+    fi
+done
+
+echo "└───────────────────────────────────────────────────────────────────────┘"
+
 if [ -n "$ERROR_COUNT" ] && [ "$ERROR_COUNT" -gt 0 ]; then
-    echo "Validation completed with $ERROR_COUNT errors."
+    echo -e "\nValidation completed with \033[31m$ERROR_COUNT errors\033[0m."
     echo "Review the output above for details on failed components."
     
     if [ "$HAS_INFINIBAND" -eq 0 ]; then
@@ -409,7 +526,7 @@ if [ -n "$ERROR_COUNT" ] && [ "$ERROR_COUNT" -gt 0 ]; then
         echo "Consider using: Standard_HB120rs_v3, Standard_ND40rs_v2, or similar."
     fi
 else
-    echo "All validation tests completed successfully!"
+    echo -e "\n\033[32mAll validation tests completed successfully!\033[0m"
 fi
 echo -e "\n=== Validation Complete ==="
 echo "$(date)"
