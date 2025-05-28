@@ -381,18 +381,43 @@ verify_ipoib_status || echo "IPoIB status verification failed"
 # Additional checks for Rocky Linux
 echo -e "\n--- Rocky Linux-specific Validation ---"
 if [ "$ID" == "rocky" ]; then
+    rocky_specific_result=0
+    
     # Check for DNF and YUM
     echo "Checking package managers:"
-    which dnf && dnf --version | head -1 || echo "DNF not found"
-    which yum && yum --version | head -1 || echo "YUM not found"
+    if which dnf && dnf --version | head -1; then
+        echo "DNF found [OK]"
+    else
+        echo "DNF not found"
+        rocky_specific_result=1
+    fi
+    
+    if which yum && yum --version | head -1; then
+        echo "YUM found [OK]"
+    else
+        echo "YUM not found"
+        rocky_specific_result=1
+    fi
     
     # Check for common Rocky Linux services
     echo "Checking Rocky Linux services:"
-    systemctl status chronyd || echo "chronyd not active"
+    if systemctl status chronyd | tee; then
+        echo "chronyd active [OK]"
+    else
+        echo "chronyd not active"
+        rocky_specific_result=1
+    fi
     
     # Check for SELinux packages
     echo "Checking SELinux packages:"
-    rpm -qa | grep -E "selinux" || echo "No SELinux packages found"
+    if rpm -qa | grep -E "selinux"; then
+        echo "SELinux packages found [OK]"
+    else
+        echo "No SELinux packages found"
+        rocky_specific_result=1
+    fi
+    
+    record_test_result "Rocky Linux Specific" $rocky_specific_result
 fi
 
 # Create a summary of validation results

@@ -263,11 +263,12 @@ function verify_rccl_installation {
 }
 
 function verify_package_updates {
+    echo "Distribution detected: ${ID}"
     case ${ID} in
         ubuntu) sudo apt -q --assume-no update;;
-        almalinux) sudo yum update -y --setopt tsflags=test;
+        almalinux) sudo yum update -y --setopt tsflags=test | tee;
             sudo yum clean packages;;
-        azurelinux) sudo dnf update -y --setopt tsflags=test;
+        azurelinux) sudo dnf update -y --setopt tsflags=test | tee;
             sudo dnf clean packages;;
         * ) ;;
     esac
