@@ -298,6 +298,12 @@ run_test_with_error_handling "Open MPI" verify_ompi_installation_root
 
 # CUDA validation
 echo -e "\n--- CUDA Validation ---"
+# Check if NVIDIA hardware is present
+if ! lspci | grep -i nvidia > /dev/null; then
+    echo "No NVIDIA hardware detected - skipping some CUDA validation tests"
+    echo "SKIP_NVIDIA_COMPONENTS=1" # Set this explicitly to skip restricted components
+    export SKIP_NVIDIA_COMPONENTS=1
+fi
 verify_cuda_installation || echo "CUDA verification failed"
 
 # NCCL validation
@@ -420,6 +426,18 @@ if [ "$ID" == "rocky" ]; then
     record_test_result "Rocky Linux Specific" $rocky_specific_result
 fi
 
+# Function to record test results
+function record_test_result {
+    local component_name="$1"
+    local result="$2"
+    
+    if [ "$result" -eq 0 ]; then
+        PASSED_COMPONENTS+=("$component_name")
+    else
+        FAILED_COMPONENTS+=("$component_name")
+    fi
+}
+
 # Create a summary of validation results
 echo -e "\n=== Validation Summary ==="
 
@@ -501,7 +519,12 @@ fi
 if [ ${#FAILED_COMPONENTS[@]} -gt 0 ]; then
     echo -e "│ ${RED}✗ FAILED:${RESET}"
     for comp in "${FAILED_COMPONENTS[@]}"; do
-        echo -e "│   - $comp"
+        # Add a note for NVIDIA components that might fail on non-GPU hardware
+        if [[ "$comp" == *"NVIDIA"* ]] && ! lspci | grep -i nvidia > /dev/null; then
+            echo -e "│   - $comp ${YELLOW}(expected failure - no NVIDIA hardware detected)${RESET}"
+        else
+            echo -e "│   - $comp"
+        fi
     done
 fi
 

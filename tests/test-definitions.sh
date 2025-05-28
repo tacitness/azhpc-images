@@ -140,7 +140,13 @@ function verify_cuda_installation {
         # Having a newer CUDA runtime breaks gpu-burn
         if [[ $(ver ${VERSION_CUDA}) -gt $(ver ${nvidia_driver_cuda_version})  ]]; then
             echo "*** Error - CUDA runtime version ${VERSION_CUDA} is newer than the driver CUDA version ${nvidia_driver_cuda_version}"
-            exit -1
+            # Increment error count instead of exiting
+            if [ -z "$ERROR_COUNT" ]; then
+                ERROR_COUNT=1
+            else
+                ERROR_COUNT=$((ERROR_COUNT+1))
+            fi
+            return 1
         else
             echo "[OK] : CUDA runtime version ${VERSION_CUDA} is compatible with the driver CUDA version ${nvidia_driver_cuda_version}"    
         fi
