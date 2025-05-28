@@ -106,28 +106,33 @@ function verify_cuda_installation {
     nvidia_driver_cuda_version=$(nvidia-smi --version | tail -n 1 | awk -F':' '{print $2}' | tr -d "[:space:]")
     check_exit_code "NVIDIA Driver ${VERSION_NVIDIA}" "Failed to run NVIDIA SMI"
     
-    # Verify if NVIDIA peer memory module is inserted
-    lsmod | grep nvidia_peermem
-    check_exit_code "NVIDIA Peer memory module is inserted" "NVIDIA Peer memory module is not inserted!"
-
-    # Verify if CUDA is installed
-    # re-enable this after testing
-    # nvcc --version
-    # check_exit_code "CUDA Driver ${VERSION_CUDA}" "CUDA not installed"
-    check_exists "/usr/local/cuda/"
-    
-    # Check that the CUDA runtime version isn't newer than the driver CUDA version.
-    # Having a newer CUDA runtime breaks gpu-burn
-    if [[ $(ver ${VERSION_CUDA}) -gt $(ver ${nvidia_driver_cuda_version})  ]]; then
-        echo "*** Error - CUDA runtime version ${VERSION_CUDA} is newer than the driver CUDA version ${nvidia_driver_cuda_version}"
-        exit -1
+    # Verify if NVIDIA peer memory module is inserted - only check if non-redistributable components are installed
+    if [ -z "$SKIP_NVIDIA_COMPONENTS" ] || [ "$SKIP_NVIDIA_COMPONENTS" != "1" ]; then
+        lsmod | grep nvidia_peermem
+        check_exit_code "NVIDIA Peer memory module is inserted" "NVIDIA Peer memory module is not inserted!"
     else
-        echo "[OK] : CUDA runtime version ${VERSION_CUDA} is compatible with the driver CUDA version ${nvidia_driver_cuda_version}"    
+        echo "Skipping NVIDIA Peer memory module check - only redistributable components installed"
     fi
 
-    # Verify the compilation of CUDA samples
-    /usr/local/cuda/samples/0_Introduction/mergeSort/mergeSort
-    check_exit_code "CUDA Samples ${VERSION_CUDA}" "Failed to perform merge sort using CUDA Samples"
+    # Verify if CUDA is installed - only check if non-redistributable components are installed
+    if [ -z "$SKIP_NVIDIA_COMPONENTS" ] || [ "$SKIP_NVIDIA_COMPONENTS" != "1" ]; then
+        # nvcc --version
+        # check_exit_code "CUDA Driver ${VERSION_CUDA}" "CUDA not installed"
+        check_exists "/usr/local/cuda/"
+        
+        # Check that the CUDA runtime version isn't newer than the driver CUDA version.
+        # Having a newer CUDA runtime breaks gpu-burn
+        if [[ $(ver ${VERSION_CUDA}) -gt $(ver ${nvidia_driver_cuda_version})  ]]; then
+            echo "*** Error - CUDA runtime version ${VERSION_CUDA} is newer than the driver CUDA version ${nvidia_driver_cuda_version}"
+            exit -1
+        else
+            echo "[OK] : CUDA runtime version ${VERSION_CUDA} is compatible with the driver CUDA version ${nvidia_driver_cuda_version}"    
+        fi
+
+        # Verify the compilation of CUDA samples
+        /usr/local/cuda/samples/0_Introduction/mergeSort/mergeSort
+        check_exit_code "CUDA Samples ${VERSION_CUDA}" "Failed to perform merge sort using CUDA Samples"
+    fi
 }
 
 function verify_nccl_installation {
@@ -136,7 +141,22 @@ function verify_nccl_installation {
         cat /etc/nccl.conf
     fi
 
+    # Detect if we're using the redistributable version of NCCL
+    local is_redist=0
+    if [ -n "$SKIP_NVIDIA_COMPONENTS" ] && [ "$SKIP_NVIDIA_COMPONENTS" = "1" ]; then
+        echo "Using redistributable version of NCCL"
+        is_redist=1
+    fi
+
     module load mpi/hpcx
+
+    # Use appropriate transport based on hardware and available components
+    local UCX_TRANSPORT="tcp"
+    if [ "$HAS_INFINIBAND" -eq 1 ] && [ "$is_redist" -eq 0 ]; then
+        UCX_TRANSPORT="rc"
+    fi
+    
+    echo "Using UCX transport: $UCX_TRANSPORT"
 
     case ${VMSIZE} in
         standard_nc24rs_v3) mpirun -np 4 \
@@ -144,23 +164,38 @@ function verify_nccl_installation {
             --allow-run-as-root \
             --map-by ppr:4:node \
             -mca coll_hcoll_enable 0 \
-            -x UCX_TLS=tcp \
+            -x UCX_TLS=$UCX_TRANSPORT \
             -x CUDA_DEVICE_ORDER=PCI_BUS_ID \
             -x NCCL_SOCKET_IFNAME=eth0 \
             -x NCCL_DEBUG=WARN \
             /opt/nccl-tests/build/all_reduce_perf -b1K -f2 -g1 -e 4G;;
-        standard_nd40rs_v2 | standard_nd96*v4 | standard_nc*ads_a100_v4) mpirun -np 8 \
-            --allow-run-as-root \
-            --map-by ppr:8:node \
-            -x LD_LIBRARY_PATH=/usr/local/nccl-rdma-sharp-plugins/lib:$LD_LIBRARY_PATH \
-            -mca coll_hcoll_enable 0 \
-            -x UCX_TLS=tcp \
-            -x CUDA_DEVICE_ORDER=PCI_BUS_ID \
-            -x NCCL_SOCKET_IFNAME=eth0 \
-            -x NCCL_DEBUG=WARN \
-            -x NCCL_NET_GDR_LEVEL=5 \
-            /opt/nccl-tests/build/all_reduce_perf -b1K -f2 -g1 -e 4G;;
-        *) ;;
+        standard_nd40rs_v2 | standard_nd96*v4 | standard_nc*ads_a100_v4) 
+            if [ "$is_redist" -eq 0 ]; then
+                # Full NCCL with CUDA dependencies
+                mpirun -np 8 \
+                    --allow-run-as-root \
+                    --map-by ppr:8:node \
+                    -x LD_LIBRARY_PATH=/usr/local/nccl-rdma-sharp-plugins/lib:$LD_LIBRARY_PATH \
+                    -mca coll_hcoll_enable 0 \
+                    -x UCX_TLS=$UCX_TRANSPORT \
+                    -x CUDA_DEVICE_ORDER=PCI_BUS_ID \
+                    -x NCCL_SOCKET_IFNAME=eth0 \
+                    -x NCCL_DEBUG=WARN \
+                    -x NCCL_NET_GDR_LEVEL=5 \
+                    /opt/nccl-tests/build/all_reduce_perf -b1K -f2 -g1 -e 4G
+            else
+                # Redistributable version of NCCL
+                mpirun -np 8 \
+                    --allow-run-as-root \
+                    --map-by ppr:8:node \
+                    -mca coll_hcoll_enable 0 \
+                    -x UCX_TLS=$UCX_TRANSPORT \
+                    -x CUDA_DEVICE_ORDER=PCI_BUS_ID \
+                    -x NCCL_SOCKET_IFNAME=eth0 \
+                    -x NCCL_DEBUG=WARN \
+                    /opt/nccl-tests/build/all_reduce_perf -b1K -f2 -g1 -e 4G
+            fi;;
+        *) echo "Skipping NCCL test for VM size: ${VMSIZE}";;
     esac
     check_exit_code "NCCL ${VERSION_NCCL}" "Failed to run NCCL all reduce perf"
     
@@ -286,6 +321,12 @@ function verify_lustre_installation {
 }
 
 function verify_gdrcopy_installation {
+    # Skip GDRCopy check if only redistributable components are installed
+    if [ -n "$SKIP_NVIDIA_COMPONENTS" ] && [ "$SKIP_NVIDIA_COMPONENTS" = "1" ]; then
+        echo "Skipping GDRCopy check - only redistributable components installed"
+        return 0
+    fi
+    
     # Verify GDRCopy package installation
     gdrcopy_sanity
     check_exit_code "GDRCopy Installed" "GDRCopy not installed!"
@@ -308,6 +349,12 @@ function verify_aznfs_installation {
 }
 
 function verify_dcgm_installation {
+    # Skip DCGM check if only redistributable components are installed
+    if [ -n "$SKIP_NVIDIA_COMPONENTS" ] && [ "$SKIP_NVIDIA_COMPONENTS" = "1" ]; then
+        echo "Skipping DCGM check - only redistributable components installed"
+        return 0
+    fi
+    
     # Verify DCGM package installation
     case ${ID} in
         ubuntu) dpkg -l | grep datacenter-gpu-manager;;
@@ -333,6 +380,12 @@ function verify_sku_customization_service {
 }
 
 function verify_nvidia_fabricmanager_service {
+    # Skip Fabric Manager check if only redistributable components are installed
+    if [ -n "$SKIP_NVIDIA_COMPONENTS" ] && [ "$SKIP_NVIDIA_COMPONENTS" = "1" ]; then
+        echo "Skipping NVIDIA Fabric Manager check - only redistributable components installed"
+        return 0
+    fi
+    
     # Check if the NVIDIA Fabricmanager service is active
     local valid_sizes="standard_nd96.*v4|standard_nd96is*_h100_v5"
     if [[ "${VMSIZE}" =~ ^($valid_sizes)$ ]]
