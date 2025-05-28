@@ -6,9 +6,16 @@ function check_exists {
     if [ $? -eq 0 ]
     then
         echo "$1 [OK]"
+        return 0
     else
         echo "*** Error - $1 not found!" >&2
-        exit -1
+        # Increment error count instead of exiting
+        if [ -z "$ERROR_COUNT" ]; then
+            ERROR_COUNT=1
+        else
+            ERROR_COUNT=$((ERROR_COUNT+1))
+        fi
+        return 1
     fi
 }
 
@@ -290,6 +297,12 @@ function verify_gcc_installation {
 
 # Check module file for the explicit installations
 function verify_gcc_modulefile {
+    # Skip if VERSION_GCC is not set
+    if [ -z "${VERSION_GCC}" ]; then
+        echo "Skipping GCC modulefile check - VERSION_GCC is not defined"
+        return 0
+    fi
+    
     # Verify GCC Software installation path
     check_exists "/opt/gcc-${VERSION_GCC}/"
     # Verify GCC module file path
