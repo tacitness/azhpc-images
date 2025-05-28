@@ -532,40 +532,38 @@ else
 fi
 
 # Print the summary table
-echo -e "\n┌───────────────────────────────────────────────────────────┐"
-echo -e "│ Component Status Summary                                   │"
-echo -e "├───────────────────────────────────────────────────────────┤"
+echo -e "\n=== Component Status Summary ==="
 
 # Print passed components
 if [ ${#PASSED_COMPONENTS[@]} -gt 0 ]; then
-    echo -e "│ ${GREEN}✓ PASSED:${RESET}"
+    echo -e "\n${GREEN}PASSED:${RESET}"
     for comp in "${PASSED_COMPONENTS[@]}"; do
-        echo -e "│   - $comp"
+        echo -e "${GREEN}✓${RESET} $comp - PASS"
     done
 fi
 
 # Print failed components
 if [ ${#FAILED_COMPONENTS[@]} -gt 0 ]; then
-    echo -e "│ ${RED}✗ FAILED:${RESET}"
+    echo -e "\n${RED}FAILED:${RESET}"
     for comp in "${FAILED_COMPONENTS[@]}"; do
         # Add a note for NVIDIA components that might fail on non-GPU hardware
         if [[ "$comp" == *"NVIDIA"* ]] && ! lspci | grep -i nvidia > /dev/null; then
-            echo -e "│   - $comp ${YELLOW}(expected failure - no NVIDIA hardware detected)${RESET}"
+            echo -e "${RED}✗${RESET} $comp - FAIL ${YELLOW}(expected failure - no NVIDIA hardware detected)${RESET}"
         else
-            echo -e "│   - $comp"
+            echo -e "${RED}✗${RESET} $comp - FAIL"
         fi
     done
 fi
 
 # Print skipped components
 if [ ${#SKIPPED_COMPONENTS[@]} -gt 0 ]; then
-    echo -e "│ ${YELLOW}⚠ SKIPPED (possibly due to redistribution restrictions):${RESET}"
+    echo -e "\n${YELLOW}SKIPPED:${RESET}"
     for comp in "${SKIPPED_COMPONENTS[@]}"; do
-        echo -e "│   - $comp"
+        echo -e "${YELLOW}⚠${RESET} $comp - SKIPPED"
     done
 fi
 
-echo -e "└───────────────────────────────────────────────────────────┘"
+echo -e "\n=== End of Component Status Summary ==="
 
 if [ -n "$ERROR_COUNT" ] && [ "$ERROR_COUNT" -gt 0 ]; then
     echo -e "\nValidation completed with ${RED}$ERROR_COUNT errors${RESET}."
@@ -577,6 +575,12 @@ if [ -n "$ERROR_COUNT" ] && [ "$ERROR_COUNT" -gt 0 ]; then
         echo "Some errors are expected when validating on non-HPC hardware."
         echo "For complete validation, run this script on an Azure HPC VM instance."
         echo "Consider using: Standard_HB120rs_v3, Standard_ND40rs_v2, or similar."
+    fi
+    
+    if ! lspci | grep -i nvidia > /dev/null; then
+        echo ""
+        echo "NOTE: This machine does not have NVIDIA GPU hardware."
+        echo "NVIDIA-related failures are expected and do not indicate a problem."
     fi
 else
     echo -e "\n${GREEN}All validation tests completed successfully!${RESET}"
