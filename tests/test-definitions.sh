@@ -112,6 +112,8 @@ function verify_cuda_installation {
         check_exit_code "NVIDIA Peer memory module is inserted" "NVIDIA Peer memory module is not inserted!"
     else
         echo "Skipping NVIDIA Peer memory module check - only redistributable components installed"
+        # Return success explicitly for this skipped check
+        return 0
     fi
 
     # Verify if CUDA is installed - only check if non-redistributable components are installed
@@ -132,6 +134,10 @@ function verify_cuda_installation {
         # Verify the compilation of CUDA samples
         /usr/local/cuda/samples/0_Introduction/mergeSort/mergeSort
         check_exit_code "CUDA Samples ${VERSION_CUDA}" "Failed to perform merge sort using CUDA Samples"
+    else
+        echo "Skipping CUDA sample checks - only redistributable components installed"
+        # Return success explicitly for this skipped check
+        return 0
     fi
 }
 
@@ -195,7 +201,11 @@ function verify_nccl_installation {
                     -x NCCL_DEBUG=WARN \
                     /opt/nccl-tests/build/all_reduce_perf -b1K -f2 -g1 -e 4G
             fi;;
-        *) echo "Skipping NCCL test for VM size: ${VMSIZE}";;
+        *) 
+            echo "Skipping NCCL test for VM size: ${VMSIZE}"
+            # Return success explicitly for skipped VM sizes
+            return 0
+            ;;
     esac
     check_exit_code "NCCL ${VERSION_NCCL}" "Failed to run NCCL all reduce perf"
     
