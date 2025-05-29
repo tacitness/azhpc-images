@@ -1,5 +1,5 @@
 #!/bin/bash
-set -ex
+set -e
 
 # Initialize timing array and variables
 declare -A STAGE_TIMES
